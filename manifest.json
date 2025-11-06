@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Smart PDF Merger",
+  "version": "1.1",
+  "description": "Upload, reorder, and merge PDF files in custom sequence.",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": ["downloads"]
+}
