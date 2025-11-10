@@ -1,29 +1,25 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-  <title>Smart PDF Merger</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <title>PDF Merge</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
-  <h2>Smart PDF Merger</h2>
-
-  <!-- File input wrapper (styled like canvas) -->
-  <div id="fileInputWrapper">
-    <span>Choose PDF files...</span>
-    <input type="file" id="fileInput" multiple accept=".pdf">
+  <h1>PDF Merge</h1>
+  <label id="chooseFileBtn" for="fileInput">Choose PDF Files</label>
+  <input type="file" id="fileInput" multiple accept="application/pdf" />
+  <div id="progressContainer" class="hidden">
+    <div id="progressBar"></div>
   </div>
-
   <div id="fileList"></div>
-
-  <div class="button-row">
-    <button id="renameBtn" disabled>Rename</button>
-    <button id="mergeBtn" disabled>Download</button>
+  <div class="controls">
+    <input type="text" id="outputName" placeholder="Output name (optional)" />
+    <button id="mergeBtn">Merge PDFs</button>
   </div>
-
-  <!-- PDF.js for rendering previews -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.12.313/pdf.min.js"></script>
+  <p id="message" class="message"></p>
   <script src="pdf-lib.min.js"></script>
   <script src="sortable.min.js"></script>
   <script src="popup.js"></script>

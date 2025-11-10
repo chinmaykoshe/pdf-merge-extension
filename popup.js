@@ -1,141 +1,92 @@
-const fileWrapper = document.getElementById('fileInputWrapper');
 const fileInput = document.getElementById("fileInput");
 const fileListDiv = document.getElementById("fileList");
 const mergeBtn = document.getElementById("mergeBtn");
-const renameBtn = document.getElementById("renameBtn");
+const outputName = document.getElementById("outputName");
+const progressContainer = document.getElementById("progressContainer");
+const progressBar = document.getElementById("progressBar");
+const message = document.getElementById("message");
 
 let pdfFiles = [];
-let outputName = "pdf-merged"; // default base name
 
-// Click wrapper to open file picker
-fileWrapper.addEventListener('click', () => fileInput.click());
-
-// File input change
-fileInput.addEventListener("change", (e) => {
-  pdfFiles = Array.from(e.target.files);
-  renderList();
-
-  const enabled = pdfFiles.length >= 2;
-  mergeBtn.disabled = !enabled;
-  renameBtn.disabled = !enabled;
-
-  fileWrapper.querySelector('span').textContent = `${pdfFiles.length} file(s) selected`;
-});
-
-// Render file list with canvas preview
 function renderList() {
   fileListDiv.innerHTML = "";
+  pdfFiles.forEach((file, idx) => {
+    const p = document.createElement("p");
+    p.className = "file-item";
+    p.textContent = file.name;
 
-  pdfFiles.forEach((file, i) => {
-    const div = document.createElement("div");
-    div.className = "file-item";
-    div.setAttribute("data-index", i);
-
-    const nameSpan = document.createElement("span");
-    nameSpan.textContent = `${i + 1}. ${file.name}`;
-    nameSpan.style.flex = "1";
-
-    const canvas = document.createElement("canvas");
-    canvas.style.marginLeft = "10px";
-    canvas.style.border = "1px solid #ccc";
-    canvas.style.borderRadius = "4px";
-
-    div.appendChild(nameSpan);
-    div.appendChild(canvas);
-    fileListDiv.appendChild(div);
-
-    const reader = new FileReader();
-    reader.onload = function () {
-      const typedarray = new Uint8Array(reader.result);
-
-      pdfjsLib.getDocument({ data: typedarray }).promise.then((pdfDoc) => {
-        pdfDoc.getPage(1).then((page) => {
-          const scale = 0.2; // thumbnail scale
-          const viewport = page.getViewport({ scale });
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-
-          const ctx = canvas.getContext("2d");
-          page.render({ canvasContext: ctx, viewport });
-        });
-      }).catch(err => console.error("PDF render error:", err));
+    // Create a delete span instead of button for smaller size
+    const del = document.createElement("span");
+    del.textContent = " ×"; // space + multiplication sign for close
+    del.className = "file-del";
+    del.onclick = () => {
+      pdfFiles.splice(idx, 1);
+      renderList();
     };
-    reader.readAsArrayBuffer(file);
+
+    p.appendChild(del);
+    fileListDiv.appendChild(p);
   });
 }
 
-// Drag reorder
-new Sortable(fileListDiv, {
+
+fileInput.addEventListener("change", (e) => {
+  pdfFiles = Array.from(e.target.files);
+  renderList();
+});
+
+Sortable.create(fileListDiv, {
   animation: 150,
-  onEnd: (evt) => {
-    const { oldIndex, newIndex } = evt;
-    const moved = pdfFiles.splice(oldIndex, 1)[0];
-    pdfFiles.splice(newIndex, 0, moved);
-    renderList();
-  }
+  onEnd: () => {
+    const reordered = [];
+    fileListDiv.querySelectorAll(".file-item").forEach((div) => {
+      // Use index instead of name match (in case of duplicate filenames)
+      const idx = Array.from(fileListDiv.children).indexOf(div);
+      const file = pdfFiles[idx];
+      if (file) reordered.push(file);
+    });
+    pdfFiles = reordered;
+  },
 });
 
-// Rename logic
-renameBtn.addEventListener("click", () => {
-  const newName = prompt("Enter new base name for merged PDF:", outputName);
-  if (newName && newName.trim() !== "") {
-    outputName = newName.replace(/[^a-zA-Z0-9]/g, '') || "pdfmerged";
-    alert(`File will be saved as ${outputName}.pdf (auto-numbered if duplicate)`);
+async function mergePDFs() {
+  if (pdfFiles.length < 2) {
+    message.textContent = "Please select at least 2 PDF files.";
+    message.style.color = "red";
+    return;
   }
-});
 
-// Merge & download
-mergeBtn.addEventListener("click", async () => {
-  if (pdfFiles.length < 2) return alert("Select at least two PDFs.");
+  progressContainer.classList.remove("hidden");
+  progressBar.style.width = "0%";
 
-  mergeBtn.textContent = "Merging...";
-  mergeBtn.disabled = true;
+  const mergedPdf = await window.PDFLib.PDFDocument.create();
 
-  const { PDFDocument } = PDFLib;
-  const mergedPdf = await PDFDocument.create();
-
-  for (const file of pdfFiles) {
+  for (let i = 0; i < pdfFiles.length; i++) {
+    const file = pdfFiles[i];
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await PDFDocument.load(arrayBuffer);
-    const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-    pages.forEach((p) => mergedPdf.addPage(p));
+    const loadedPdf = await window.PDFLib.PDFDocument.load(arrayBuffer);
+    const copiedPages = await mergedPdf.copyPages(loadedPdf, loadedPdf.getPageIndices());
+    copiedPages.forEach((p) => mergedPdf.addPage(p));
+
+    progressBar.style.width = `${Math.round(((i + 1) / pdfFiles.length) * 100)}%`;
   }
 
   const mergedBytes = await mergedPdf.save();
   const blob = new Blob([mergedBytes], { type: "application/pdf" });
-  const blobUrl = URL.createObjectURL(blob);
 
-  let finalName = outputName + ".pdf";
-  let counter = 1;
+  const downloadName =
+    (outputName.value.trim() || "merged") + ".pdf";
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = downloadName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 
-  // Duplicate check (for Chrome extensions)
-  const checkDuplicate = async (filename) => {
-    return new Promise((resolve) => {
-      if (chrome && chrome.downloads) {
-        chrome.downloads.search({ query: [filename] }, (results) => {
-          resolve(results.length > 0);
-        });
-      } else {
-        resolve(false);
-      }
-    });
-  };
+  progressContainer.classList.add("hidden");
+  progressBar.style.width = "0%";
+  message.textContent = "PDF merged successfully!";
+  message.style.color = "green";
+}
 
-  while (await checkDuplicate(finalName)) {
-    finalName = `${outputName}(${counter}).pdf`;
-    counter++;
-  }
-
-  if (chrome && chrome.downloads) {
-    chrome.downloads.download({ url: blobUrl, filename: finalName });
-  } else {
-    // fallback for browser
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = finalName;
-    link.click();
-  }
-
-  mergeBtn.textContent = "Download";
-  mergeBtn.disabled = false;
-});
+mergeBtn.addEventListener("click", mergePDFs);

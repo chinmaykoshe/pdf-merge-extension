@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Smart PDF Merger",
-  "version": "1.1",
-  "description": "Upload, reorder, and merge PDF files in custom sequence.",
+  "name": "PDF Merge Extension",
+  "version": "1.1.0",
+  "description": "Merge multiple PDF files instantly — offline, no upload required.",
   "action": {
-    "default_popup": "popup.html"
-  },
-  "permissions": ["downloads"]
+    "default_popup": "popup.html",
+    "default_title": "PDF Merge"
+  }
 }
