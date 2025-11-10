@@ -1,4 +1,4 @@
-# Smart PDF Merger - Chrome Extension
+# PDF Merge Extension - Chrome Extension
 
 **Description:**  
 A lightweight Chrome extension to merge multiple PDF files, preview the first page of each PDF, reorder pages via drag-and-drop, and download the merged PDF instantly. Supports automatic renaming and removal of special characters in filenames.
@@ -31,7 +31,7 @@ A lightweight Chrome extension to merge multiple PDF files, preview the first pa
 
 ## 🖱 How to Use
 
-1. Click on the **Smart PDF Merger** icon in Chrome.  
+1. Click on the **PDF Merge Extension** icon in Chrome.  
 2. Click **Choose Files** and select multiple PDF files.  
 3. You’ll see a **list of PDFs** with a small thumbnail of the first page.  
 4. **Drag-and-drop** the items to reorder them if needed.  
