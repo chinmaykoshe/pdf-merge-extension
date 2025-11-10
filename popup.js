@@ -8,6 +8,19 @@ const message = document.getElementById("message");
 
 let pdfFiles = [];
 
+function updateOutputNameFromFiles() {
+  if (pdfFiles.length === 0) {
+    outputName.value = "";
+    return;
+  }
+  // Find a file starting with "i" (case-insensitive)
+  let match = pdfFiles.find(f => f.name.toLowerCase().startsWith("i"));
+  let baseName = match ? match.name : pdfFiles[0].name;
+  // Remove extension .pdf case-insensitive
+  baseName = baseName.replace(/\.pdf$/i, "");
+  outputName.value = baseName + "-merged";
+}
+
 function renderList() {
   fileListDiv.innerHTML = "";
   pdfFiles.forEach((file, idx) => {
@@ -22,6 +35,7 @@ function renderList() {
     del.onclick = () => {
       pdfFiles.splice(idx, 1);
       renderList();
+      updateOutputNameFromFiles(); // <-- correctly placed here
     };
 
     p.appendChild(del);
@@ -29,10 +43,10 @@ function renderList() {
   });
 }
 
-
 fileInput.addEventListener("change", (e) => {
   pdfFiles = Array.from(e.target.files);
   renderList();
+  updateOutputNameFromFiles(); // <-- update output name on file select
 });
 
 Sortable.create(fileListDiv, {
