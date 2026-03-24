@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <title>PDF Merge</title>
@@ -9,20 +8,36 @@
 
 <body>
   <h1>PDF Merge</h1>
-  <label id="chooseFileBtn" for="fileInput">Choose PDF Files</label>
+
+  <div class="picker">
+    <label id="chooseFileBtn" for="fileInput">Choose PDF Files</label>
+    <label id="chooseFolderBtn" for="folderInput">Choose Folder</label>
+  </div>
+
+  <!-- IMPORTANT: no accept attribute here -->
+  <input type="file" id="folderInput" webkitdirectory directory multiple />
   <input type="file" id="fileInput" multiple accept="application/pdf" />
+
   <div id="progressContainer" class="hidden">
     <div id="progressBar"></div>
   </div>
+
   <div id="fileList"></div>
+
   <div class="controls">
-    <input type="text" id="outputName" placeholder="Output name (optional)" autocomplete="off" />
+    <input
+      type="text"
+      id="outputName"
+      placeholder="Output name (optional)"
+      autocomplete="off"
+    />
     <button id="mergeBtn">Merge PDFs</button>
   </div>
+
   <p id="message" class="message"></p>
+
   <script src="pdf-lib.min.js"></script>
   <script src="sortable.min.js"></script>
   <script src="popup.js"></script>
 </body>
-
 </html>

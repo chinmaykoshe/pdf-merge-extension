@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PDF Studio — Merge & Edit</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,700;1,400;1,700&display=swap" rel="stylesheet" />
+
+<!-- Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+
+<style>
+  /* ─── Reset & Base ──────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #F5F3EF;
+    --surface:   #FFFFFF;
+    --card-bg:   #FFFFFF;
+    --border:    #E2DDD8;
+    --accent:    #E8521A;
+    --accent2:   #1A56E8;
+    --text:      #1A1714;
+    --muted:     #7D756E;
+    --shadow:    0 2px 12px rgba(0,0,0,0.07);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+    --radius:    12px;
+    --nav-h:     64px;
+    --transition: 0.18s cubic-bezier(.4,0,.2,1);
+  }
+
+  [data-theme="dark"] {
+    --bg:        #111010;
+    --surface:   #1C1B1A;
+    --card-bg:   #242322;
+    --border:    #2E2C2A;
+    --accent:    #F4652A;
+    --accent2:   #4D82FF;
+    --text:      #F0EDE8;
+    --muted:     #847D76;
+    --shadow:    0 2px 12px rgba(0,0,0,0.3);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    transition: background var(--transition), color var(--transition);
+    overflow-x: hidden;
+  }
+
+  /* ─── Noise Texture Overlay ─────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999;
+    opacity: .6;
+  }
+
+  /* ─── NAV ───────────────────────────────────────────────── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    height: var(--nav-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 24px; gap: 12px;
+    backdrop-filter: blur(10px);
+    transition: background var(--transition), border-color var(--transition);
+  }
+
+  .nav-brand {
+    display: flex; align-items: center; gap: 10px;
+    margin-right: 16px; flex-shrink: 0;
+  }
+
+  .nav-brand-icon {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .nav-brand-icon svg { width: 18px; height: 18px; fill: #fff; }
+
+  .nav-brand-name {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+
+  .nav-brand-name em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--accent);
+  }
+
+  .nav-divider {
+    width: 1px; height: 28px;
+    background: var(--border);
+    margin: 0 4px; flex-shrink: 0;
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 500;
+    cursor: pointer; border: none;
+    transition: all var(--transition);
+    white-space: nowrap; flex-shrink: 0;
+    outline: none;
+  }
+
+  .btn:active { transform: scale(0.97); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: var(--bg); border-color: var(--muted); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(232,82,26,0.25);
+  }
+  .btn-primary:hover { filter: brightness(1.08); box-shadow: 0 4px 16px rgba(232,82,26,0.35); }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; filter: none; box-shadow: none; }
+
+  .btn-icon {
+    width: 36px; height: 36px; padding: 0;
+    justify-content: center;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid transparent;
+  }
+  .btn-icon:hover { background: var(--bg); border-color: var(--border); color: var(--text); }
+
+  /* File name input */
+  .output-name-wrap {
+    display: flex; align-items: center; gap: 8px;
+    flex: 1; max-width: 340px; min-width: 160px;
+  }
+
+  .output-name-wrap label {
+    font-size: 12px; color: var(--muted);
+    white-space: nowrap; font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  #outputName {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color var(--transition), background var(--transition);
+    min-width: 0;
+  }
+  #outputName:focus { border-color: var(--accent); background: var(--surface); }
+
+  .nav-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+  /* ─── EMPTY STATE ───────────────────────────────────────── */
+  #emptyState {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-height: calc(100vh - var(--nav-h));
+    gap: 20px; padding: 40px 24px;
+    text-align: center;
+    animation: fadeUp .4s ease both;
+  }
+
+  .empty-icon {
+    width: 80px; height: 80px;
+    background: linear-gradient(135deg, var(--accent) 0%, #F4982A 100%);
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 32px rgba(232,82,26,0.2);
+  }
+
+  .empty-icon svg { width: 40px; height: 40px; fill: #fff; }
+
+  #emptyState h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(26px, 3.5vw, 38px);
+    font-weight: 700; letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1.1;
+  }
+
+  #emptyState h1 em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--accent);
+  }
+
+  #emptyState p { font-size: 15px; color: var(--muted); max-width: 380px; line-height: 1.6; }
+
+  .drop-zone {
+    width: min(480px, 100%);
+    border: 2px dashed var(--border);
+    border-radius: 20px;
+    padding: 40px 32px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    cursor: pointer;
+    transition: all var(--transition);
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(232,82,26,0.04);
+  }
+  .drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop-zone span { font-size: 14px; color: var(--muted); }
+  .drop-zone strong { font-size: 15px; font-weight: 500; color: var(--text); }
+
+  /* ─── WORKSPACE ─────────────────────────────────────────── */
+  #workspace {
+    display: none;
+    padding: 28px 24px 80px;
+    max-width: 1400px; margin: 0 auto;
+    animation: fadeUp .3s ease both;
+  }
+
+  .workspace-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px; gap: 12px;
+  }
+
+  .file-count {
+    font-size: 13px; color: var(--muted); font-weight: 500;
+  }
+
+  .file-count strong {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--text);
+    font-weight: 400;
+  }
+
+  /* ─── CARDS GRID ────────────────────────────────────────── */
+  #cardGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+  }
+
+  /* ─── PDF CARD ──────────────────────────────────────────── */
+  .pdf-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+    cursor: grab;
+    transition: box-shadow var(--transition), border-color var(--transition), transform var(--transition);
+    animation: cardIn .25s ease both;
+    user-select: none;
+  }
+
+  .pdf-card:hover {
+    box-shadow: var(--shadow-lg);
+    border-color: transparent;
+    transform: translateY(-2px);
+  }
+
+  .pdf-card.sortable-ghost {
+    opacity: 0.35;
+    transform: scale(0.97);
+  }
+
+  .pdf-card.sortable-drag {
+    cursor: grabbing;
+    box-shadow: var(--shadow-lg);
+    transform: rotate(1.5deg) scale(1.03);
+  }
+
+  .card-preview {
+    width: 100%; aspect-ratio: 3/4;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; position: relative;
+  }
+
+  .card-preview canvas {
+    width: 100% !important; height: 100% !important;
+    object-fit: contain;
+    transition: transform .3s ease;
+  }
+
+  .card-loading {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+
+  .spinner {
+    width: 24px; height: 24px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+
+  .card-loading span { font-size: 11px; color: var(--muted); }
+
+  /* Card overlay actions */
+  .card-actions {
+    position: absolute; top: 8px; right: 8px;
+    display: flex; gap: 4px;
+    opacity: 0; transform: translateY(-4px);
+    transition: opacity var(--transition), transform var(--transition);
+  }
+  .pdf-card:hover .card-actions { opacity: 1; transform: translateY(0); }
+
+  .card-btn {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(8px);
+    transition: all var(--transition);
+    font-size: 14px;
+  }
+
+  .card-btn-delete {
+    background: rgba(255,255,255,0.9);
+    color: #E8521A;
+  }
+  .card-btn-delete:hover { background: #E8521A; color: #fff; }
+
+  .card-btn-rotate {
+    background: rgba(255,255,255,0.9);
+    color: var(--text);
+  }
+  .card-btn-rotate:hover { background: var(--text); color: var(--surface); }
+
+  [data-theme="dark"] .card-btn-delete,
+  [data-theme="dark"] .card-btn-rotate {
+    background: rgba(36,35,34,0.9);
+  }
+
+  .card-badge {
+    position: absolute; top: 8px; left: 8px;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; font-weight: 500;
+    padding: 2px 6px; border-radius: 4px;
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: opacity var(--transition);
+  }
+  .pdf-card:hover .card-badge { opacity: 1; }
+
+  .card-info {
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .card-name {
+    font-size: 11.5px; font-weight: 500;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    color: var(--text);
+    line-height: 1.45;
+  }
+
+  /* copy btn */
+  .card-btn-copy {
+    background: rgba(255,255,255,0.9);
+    color: #22a06b;
+  }
+  .card-btn-copy:hover { background: #22a06b; color: #fff; }
+  [data-theme="dark"] .card-btn-copy { background: rgba(36,35,34,0.9); }
+
+  .card-meta {
+    font-size: 11px; color: var(--muted);
+    margin-top: 2px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .rotation-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* eye btn */
+  .card-btn-preview {
+    background: rgba(255,255,255,0.9);
+    color: var(--accent2);
+  }
+  .card-btn-preview:hover { background: var(--accent2); color: #fff; }
+  [data-theme="dark"] .card-btn-preview { background: rgba(36,35,34,0.9); }
+
+  /* ─── PDF PREVIEW MODAL ─────────────────────────────────── */
+  #previewModal {
+    position: fixed; inset: 0; z-index: 600;
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #previewModal.show { display: flex; animation: fadeIn .2s ease; }
+
+  .preview-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.72);
+    backdrop-filter: blur(12px);
+    cursor: pointer;
+  }
+
+  .preview-shell {
+    position: relative; z-index: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    box-shadow: var(--shadow-lg);
+    width: min(860px, 100%);
+    max-height: 92vh;
+    display: flex; flex-direction: column;
+    animation: popIn .25s cubic-bezier(.34,1.56,.64,1) both;
+    overflow: hidden;
+  }
+
+  .preview-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .preview-header h2 {
+    font-size: 14px; font-weight: 600;
+    flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .preview-page-nav {
+    display: flex; align-items: center; gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .preview-page-nav span {
+    font-size: 12px; color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    min-width: 60px; text-align: center;
+  }
+
+  .preview-body {
+    flex: 1; overflow-y: auto;
+    padding: 24px;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+    background: var(--bg);
+  }
+
+  .preview-page-wrap {
+    width: 100%; max-width: 640px;
+    background: var(--surface);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .preview-page-wrap canvas {
+    width: 100% !important; height: auto !important;
+    display: block;
+  }
+
+  .preview-page-label {
+    position: absolute; bottom: 8px; right: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: rgba(0,0,0,0.4);
+    background: rgba(255,255,255,0.8);
+    padding: 2px 6px; border-radius: 4px;
+    backdrop-filter: blur(4px);
+  }
+
+  [data-theme="dark"] .preview-page-label {
+    color: rgba(255,255,255,0.5);
+    background: rgba(0,0,0,0.5);
+  }
+
+  .preview-loading {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px; padding: 60px 0; color: var(--muted);
+    font-size: 13px;
+  }
+
+  .preview-close {
+    width: 32px; height: 32px;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: transparent; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 16px;
+    transition: all var(--transition); flex-shrink: 0;
+  }
+  .preview-close:hover { background: var(--bg); color: var(--text); }
+
+  /* ─── ADD CARD ──────────────────────────────────────────── */
+  .add-card {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    aspect-ratio: unset; min-height: 180px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 8px; cursor: pointer;
+    transition: all var(--transition);
+    color: var(--muted);
+    background: transparent;
+    position: relative;
+  }
+  .add-card input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .add-card:hover { border-color: var(--accent); color: var(--accent); background: rgba(232,82,26,0.04); }
+
+  .add-card-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 300;
+    transition: all var(--transition);
+  }
+  .add-card:hover .add-card-icon {
+    background: rgba(232,82,26,0.1);
+  }
+
+  .add-card span { font-size: 13px; font-weight: 500; }
+
+  /* ─── TOAST ─────────────────────────────────────────────── */
+  #toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--text); color: var(--bg);
+    padding: 10px 20px; border-radius: 10px;
+    font-size: 13px; font-weight: 500;
+    box-shadow: var(--shadow-lg);
+    opacity: 0; transition: all .25s ease;
+    pointer-events: none; white-space: nowrap;
+    z-index: 1000;
+    display: flex; align-items: center; gap: 8px;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.success .toast-dot { background: #4CAF50; }
+  #toast.error .toast-dot { background: var(--accent); }
+  #toast.info .toast-dot { background: var(--accent2); }
+
+  .toast-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ─── PROGRESS OVERLAY ──────────────────────────────────── */
+  #progressOverlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(8px);
+    z-index: 500;
+    display: none; align-items: center; justify-content: center;
+  }
+
+  #progressOverlay.show { display: flex; animation: fadeIn .2s ease; }
+
+  .progress-box {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 36px 48px;
+    text-align: center;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border);
+    min-width: 280px;
+    animation: popIn .25s cubic-bezier(.34,1.56,.64,1) both;
+  }
+
+  .progress-box h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+  .progress-box p { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+
+  .progress-bar-wrap {
+    height: 4px; background: var(--border);
+    border-radius: 2px; overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%; background: var(--accent);
+    border-radius: 2px;
+    transition: width .3s ease;
+    width: 0%;
+  }
+
+  .progress-icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, var(--accent), #F4982A);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+  }
+  .progress-icon svg { width: 24px; height: 24px; fill: #fff; }
+
+  /* ─── RESTORE BANNER ────────────────────────────────────── */
+  #restoreBanner {
+    display: none;
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 20px;
+    box-shadow: var(--shadow-lg);
+    z-index: 200;
+    display: none; align-items: center; gap: 12px;
+    font-size: 13px;
+    animation: slideUp .3s ease both;
+    white-space: nowrap;
+  }
+
+  #restoreBanner.show { display: flex; }
+
+  #restoreBanner span { color: var(--text); }
+  #restoreBanner .muted { color: var(--muted); }
+
+  /* ─── SCROLLBAR ─────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* ─── ANIMATIONS ────────────────────────────────────────── */
+  @keyframes fadeUp   { from { opacity:0; transform: translateY(16px); } to { opacity:1; transform: translateY(0); } }
+  @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
+  @keyframes cardIn   { from { opacity:0; transform: scale(0.94) translateY(8px); } to { opacity:1; transform: scale(1) translateY(0); } }
+  @keyframes spin     { to { transform: rotate(360deg); } }
+  @keyframes popIn    { from { opacity:0; transform: scale(0.9); } to { opacity:1; transform: scale(1); } }
+  @keyframes slideUp  { from { opacity:0; transform: translateX(-50%) translateY(12px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
+
+  /* ─── RESPONSIVE ────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    nav { gap: 8px; padding: 0 14px; }
+    .nav-brand-name { display: none; }
+    .output-name-wrap label { display: none; }
+    #workspace { padding: 16px 14px 60px; }
+    #cardGrid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  }
+
+  /* ─── THEME TOGGLE ──────────────────────────────────────── */
+  .theme-toggle {
+    width: 36px; height: 20px;
+    background: var(--border);
+    border-radius: 10px;
+    position: relative; cursor: pointer;
+    transition: background var(--transition);
+    border: none;
+    flex-shrink: 0;
+  }
+  .theme-toggle::after {
+    content: '';
+    position: absolute; top: 2px; left: 2px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--surface);
+    transition: transform var(--transition), background var(--transition);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  [data-theme="dark"] .theme-toggle { background: var(--accent); }
+  [data-theme="dark"] .theme-toggle::after { transform: translateX(16px); }
+
+  .theme-label { font-size: 12px; color: var(--muted); }
+
+  /* Dragging global state */
+  body.is-dragging .pdf-card { transition: none; }
+</style>
+</head>
+<body>
+
+<!-- ─── NAV ─── -->
+<nav>
+  <div class="nav-brand">
+    <div class="nav-brand-icon">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+    </div>
+    <span class="nav-brand-name">PDF <em>Studio</em></span>
+  </div>
+
+  <div class="nav-divider"></div>
+
+  <!-- Add Files -->
+  <label class="btn btn-ghost" style="cursor:pointer; position:relative; overflow:hidden;">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+    Add Files
+    <input type="file" id="addFilesInput" accept=".pdf" multiple style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
+  </label>
+
+  <!-- Add Folder -->
+  <label class="btn btn-ghost" style="cursor:pointer; position:relative; overflow:hidden;">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    Add Folder
+    <input type="file" id="addFolderInput" accept=".pdf" multiple webkitdirectory style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
+  </label>
+
+  <div class="nav-divider"></div>
+
+  <!-- Output name -->
+  <div class="output-name-wrap">
+    <label for="outputName">Output:</label>
+    <input type="text" id="outputName" placeholder="merged.pdf" spellcheck="false" />
+  </div>
+
+  <div class="nav-right">
+    <!-- Dark mode -->
+    <span class="theme-label" id="themeLabel">Light</span>
+    <button class="theme-toggle" id="themeToggle" title="Toggle dark mode" aria-label="Toggle dark mode"></button>
+
+    <!-- Merge -->
+    <button class="btn btn-primary" id="mergeBtn" disabled>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H5a2 2 0 0 0-2 2v0a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v0a2 2 0 0 0-2-2h-4"/><polyline points="12 3 12 15"/><polyline points="8 11 12 15 16 11"/></svg>
+      Merge & Download
+    </button>
+  </div>
+</nav>
+
+<!-- ─── EMPTY STATE ─── -->
+<div id="emptyState">
+  <div class="empty-icon">
+    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>
+  </div>
+  <h1>Merge &amp; <em>Edit</em> PDFs</h1>
+  <p>Upload PDFs to reorder, rotate, and merge them into a single file — all in your browser.</p>
+
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="dropInput" accept=".pdf" multiple />
+    <div class="add-card-icon" style="width:48px;height:48px;font-size:26px;">⊕</div>
+    <strong>Drop PDFs here</strong>
+    <span>or click to browse files</span>
+  </div>
+</div>
+
+<!-- ─── WORKSPACE ─── -->
+<div id="workspace">
+  <div class="workspace-header">
+    <span class="file-count" id="fileCount">0 files</span>
+  </div>
+  <div id="cardGrid"></div>
+</div>
+
+<!-- ─── PDF PREVIEW MODAL ─── -->
+<div id="previewModal">
+  <div class="preview-backdrop" id="previewBackdrop"></div>
+  <div class="preview-shell">
+    <div class="preview-header">
+      <h2 id="previewTitle">Preview</h2>
+      <div class="preview-page-nav">
+        <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px;" id="prevPageBtn">← Prev</button>
+        <span id="previewPageInfo">Page 1 / 1</span>
+        <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px;" id="nextPageBtn">Next →</button>
+      </div>
+      <button class="preview-close" id="previewClose" title="Close">✕</button>
+    </div>
+    <div class="preview-body" id="previewBody">
+      <div class="preview-loading">
+        <div class="spinner" style="width:32px;height:32px;border-width:3px;"></div>
+        <span>Rendering pages…</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── PROGRESS OVERLAY ─── -->
+<div id="progressOverlay">
+  <div class="progress-box">
+    <div class="progress-icon">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>
+    </div>
+    <h3>Merging PDFs…</h3>
+    <p id="progressLabel">Preparing files</p>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── RESTORE BANNER ─── -->
+<div id="restoreBanner">
+  <span>🗂️ You have a previous session</span>
+  <span class="muted" id="restoreTime"></span>
+  <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;" id="restoreBtn">Restore</button>
+  <button class="btn-icon btn" id="dismissRestore" title="Dismiss">✕</button>
+</div>
+
+<!-- ─── TOAST ─── -->
+<div id="toast"><div class="toast-dot"></div><span id="toastMsg"></span></div>
+
+<script>
+// ── pdf.js setup ─────────────────────────────────────────────
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ── State ────────────────────────────────────────────────────
+const STORAGE_KEY = 'pdfstudio_state_v1';
+const EXPIRE_MS   = 36 * 60 * 60 * 1000; // 36 hours
+
+let files     = [];   // { id, file, name, size, rotation }
+let nextId    = 1;
+let nameEdited = false;
+let sortable  = null;
+
+// ── DOM refs ─────────────────────────────────────────────────
+const emptyState   = document.getElementById('emptyState');
+const workspace    = document.getElementById('workspace');
+const cardGrid     = document.getElementById('cardGrid');
+const mergeBtn     = document.getElementById('mergeBtn');
+const outputName   = document.getElementById('outputName');
+const fileCountEl  = document.getElementById('fileCount');
+const progressOv   = document.getElementById('progressOverlay');
+const progressBar  = document.getElementById('progressBar');
+const progressLbl  = document.getElementById('progressLabel');
+const toastEl      = document.getElementById('toast');
+const toastMsg     = document.getElementById('toastMsg');
+const restoreBanner = document.getElementById('restoreBanner');
+const themeToggle  = document.getElementById('themeToggle');
+const themeLabel   = document.getElementById('themeLabel');
+
+// ── Theme ────────────────────────────────────────────────────
+function initTheme() {
+  const saved = localStorage.getItem('pdfstudio_theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const dark = saved ? saved === 'dark' : prefersDark;
+  setTheme(dark);
+}
+
+function setTheme(dark) {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  themeLabel.textContent = dark ? 'Dark' : 'Light';
+  localStorage.setItem('pdfstudio_theme', dark ? 'dark' : 'light');
+}
+
+themeToggle.addEventListener('click', () => {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  setTheme(!isDark);
+});
+
+initTheme();
+
+// ── Toast ────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg, type = 'info', duration = 3000) {
+  toastMsg.textContent = msg;
+  toastEl.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastEl.className = ''; }, duration);
+}
+
+// ── Output name ──────────────────────────────────────────────
+outputName.addEventListener('input', () => { nameEdited = true; });
+
+function suggestName(name) {
+  if (nameEdited) return;
+  const base = name.replace(/\.pdf$/i, '');
+  outputName.value = `${base}-merged.pdf`;
+}
+
+// ── File processing ──────────────────────────────────────────
+async function addFiles(fileList) {
+  const pdfs = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+  if (!pdfs.length) { showToast('No PDF files found', 'error'); return; }
+
+  // Deduplicate: skip files whose exact name is already present
+  const existingNames = new Set(files.map(f => f.name));
+  const fresh = [], skipped = [];
+  for (const f of pdfs) {
+    if (existingNames.has(f.name)) { skipped.push(f.name); }
+    else { fresh.push(f); existingNames.add(f.name); }
+  }
+
+  if (skipped.length) showToast(`Skipped ${skipped.length} duplicate${skipped.length > 1 ? 's' : ''}`, 'info');
+  if (!fresh.length) return;
+
+  if (files.length === 0 && fresh.length > 0) suggestName(fresh[0].name);
+
+  for (const f of fresh) {
+    const entry = { id: nextId++, file: f, name: f.name, size: f.size, rotation: 0 };
+    files.push(entry);
+    const card = createCard(entry);
+    const addCardEl = cardGrid.querySelector('.add-card');
+    cardGrid.insertBefore(card, addCardEl);
+    renderPreview(entry, card);
+  }
+
+  updateUI();
+  saveState();
+  showToast(`${fresh.length} file${fresh.length > 1 ? 's' : ''} added`, 'success');
+}
+
+// ── Card creation ────────────────────────────────────────────
+function createCard(entry) {
+  const card = document.createElement('div');
+  card.className = 'pdf-card';
+  card.dataset.id = entry.id;
+
+  card.innerHTML = `
+    <div class="card-preview">
+      <div class="card-loading">
+        <div class="spinner"></div>
+        <span>Loading…</span>
+      </div>
+    </div>
+    <div class="card-actions">
+      <button class="card-btn card-btn-preview" title="Preview PDF">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <button class="card-btn card-btn-copy" title="Duplicate">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </button>
+      <button class="card-btn card-btn-rotate" title="Rotate 90°">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      </button>
+      <button class="card-btn card-btn-delete" title="Remove">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="card-badge">#<span class="card-num"></span></div>
+    <div class="card-info">
+      <div class="card-name">${escHtml(entry.name)}</div>
+      <div class="card-meta">
+        <span>${formatSize(entry.size)}</span>
+        <span class="rotation-badge" style="display:none">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+          <span class="rot-label">0°</span>
+        </span>
+      </div>
+    </div>`;
+
+  card.querySelector('.card-btn-delete').addEventListener('click', (e) => {
+    e.stopPropagation();
+    removeFile(entry.id, card);
+  });
+
+  card.querySelector('.card-btn-copy').addEventListener('click', (e) => {
+    e.stopPropagation();
+    duplicateFile(entry.id);
+  });
+
+  card.querySelector('.card-btn-rotate').addEventListener('click', (e) => {
+    e.stopPropagation();
+    rotateFile(entry.id, card);
+  });
+
+  card.querySelector('.card-btn-preview').addEventListener('click', (e) => {
+    e.stopPropagation();
+    openPreview(entry);
+  });
+
+  return card;
+}
+
+async function renderPreview(entry, card) {
+  try {
+    const ab = await entry.file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+    const page = await pdf.getPage(1);
+    const vp = page.getViewport({ scale: 1 });
+    const scale = 300 / Math.max(vp.width, vp.height);
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+    const preview = card.querySelector('.card-preview');
+    preview.innerHTML = '';
+    canvas.style.transform = `rotate(${entry.rotation}deg)`;
+    preview.appendChild(canvas);
+  } catch {
+    const preview = card.querySelector('.card-preview');
+    preview.innerHTML = `<div style="font-size:32px;opacity:.3">📄</div>`;
+  }
+}
+
+// ── Rotate ───────────────────────────────────────────────────
+function rotateFile(id, card) {
+  const entry = files.find(f => f.id === id);
+  if (!entry) return;
+  entry.rotation = (entry.rotation + 90) % 360;
+
+  const canvas = card.querySelector('canvas');
+  if (canvas) canvas.style.transform = `rotate(${entry.rotation}deg)`;
+
+  const badge = card.querySelector('.rotation-badge');
+  const rotLbl = card.querySelector('.rot-label');
+  if (entry.rotation === 0) {
+    badge.style.display = 'none';
+  } else {
+    badge.style.display = 'inline-flex';
+    rotLbl.textContent = entry.rotation + '°';
+  }
+
+  saveState();
+}
+
+// ── Duplicate ─────────────────────────────────────────────────
+function duplicateFile(id) {
+  const src = files.find(f => f.id === id);
+  if (!src || !src.file) { showToast('Re-upload file to duplicate it', 'error'); return; }
+
+  const base = src.name.replace(/\.pdf$/i, '');
+  // Strip existing " copy" / " copy 2" suffix so we always add fresh
+  const clean = base.replace(/\s+copy(\s+\d+)?$/i, '');
+  // Count how many copies already exist
+  const count = files.filter(f => f.name.match(new RegExp(`^${escRegex(clean)}(\\s+copy(\\s+\\d+)?)?\\.pdf$`, 'i'))).length;
+  const copyName = count <= 1 ? `${clean} copy.pdf` : `${clean} copy ${count}.pdf`;
+
+  const newFile = new File([src.file], copyName, { type: 'application/pdf' });
+  const entry = { id: nextId++, file: newFile, name: copyName, size: newFile.size, rotation: src.rotation };
+  files.push(entry);
+
+  const card = createCard(entry);
+  // Insert right after the source card
+  const srcCard = cardGrid.querySelector(`[data-id="${id}"]`);
+  if (srcCard && srcCard.nextSibling) {
+    cardGrid.insertBefore(card, srcCard.nextSibling);
+  } else {
+    const addCardEl = cardGrid.querySelector('.add-card');
+    cardGrid.insertBefore(card, addCardEl);
+  }
+  renderPreview(entry, card);
+  updateUI();
+  saveState();
+  showToast(`Duplicated as "${copyName}"`, 'success');
+}
+
+function escRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+
+function removeFile(id, card) {
+  files = files.filter(f => f.id !== id);
+  card.style.transition = 'opacity .2s, transform .2s';
+  card.style.opacity = '0';
+  card.style.transform = 'scale(0.88)';
+  setTimeout(() => card.remove(), 200);
+  updateUI();
+  saveState();
+}
+
+// ── Update UI ────────────────────────────────────────────────
+function updateUI() {
+  const hasFiles = files.length > 0;
+
+  emptyState.style.display  = hasFiles ? 'none' : 'flex';
+  workspace.style.display   = hasFiles ? 'block' : 'none';
+  mergeBtn.disabled          = !hasFiles;
+  fileCountEl.textContent    = `${files.length} file${files.length !== 1 ? 's' : ''}`;
+
+  // Renumber badges
+  const cards = cardGrid.querySelectorAll('.pdf-card');
+  cards.forEach((c, i) => {
+    const num = c.querySelector('.card-num');
+    if (num) num.textContent = i + 1;
+  });
+
+  // Init sortable once
+  if (hasFiles && !sortable) initSortable();
+}
+
+// ── Sortable ─────────────────────────────────────────────────
+function initSortable() {
+  sortable = Sortable.create(cardGrid, {
+    animation: 150,
+    ghostClass: 'sortable-ghost',
+    dragClass: 'sortable-drag',
+    handle: '.card-preview',
+    filter: '.add-card',
+    onStart: () => document.body.classList.add('is-dragging'),
+    onEnd: () => {
+      document.body.classList.remove('is-dragging');
+      syncOrder();
+      saveState();
+    }
+  });
+}
+
+function syncOrder() {
+  const cards = [...cardGrid.querySelectorAll('.pdf-card')];
+  const newFiles = [];
+  cards.forEach(c => {
+    const id = parseInt(c.dataset.id);
+    const entry = files.find(f => f.id === id);
+    if (entry) newFiles.push(entry);
+  });
+  files = newFiles;
+  updateUI();
+}
+
+// ── Merge ────────────────────────────────────────────────────
+mergeBtn.addEventListener('click', async () => {
+  if (!files.length) return;
+
+  const orderedFiles = getOrderedFiles();
+
+  progressOv.classList.add('show');
+  setProgress(0, 'Initialising…');
+
+  try {
+    const { PDFDocument, degrees } = PDFLib;
+    const merged = await PDFDocument.create();
+
+    for (let i = 0; i < orderedFiles.length; i++) {
+      const entry = orderedFiles[i];
+      setProgress(Math.round((i / orderedFiles.length) * 85), `Adding: ${entry.name}`);
+
+      const ab = await entry.file.arrayBuffer();
+      const src = await PDFDocument.load(ab, { ignoreEncryption: true });
+      const pageIndices = src.getPageIndices();
+      const copiedPages = await merged.copyPages(src, pageIndices);
+
+      copiedPages.forEach(page => {
+        if (entry.rotation) {
+          const current = page.getRotation().angle;
+          page.setRotation(degrees(current + entry.rotation));
+        }
+        merged.addPage(page);
+      });
+    }
+
+    setProgress(95, 'Finalising…');
+    const bytes = await merged.save();
+    setProgress(100, 'Done!');
+
+    await new Promise(r => setTimeout(r, 400));
+
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = outputName.value || 'merged.pdf';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+    showToast('Merged successfully!', 'success');
+  } catch (err) {
+    console.error(err);
+    showToast('Merge failed — ' + (err.message || 'unknown error'), 'error');
+  } finally {
+    progressOv.classList.remove('show');
+  }
+});
+
+function setProgress(pct, label) {
+  progressBar.style.width = pct + '%';
+  progressLbl.textContent = label;
+}
+
+function getOrderedFiles() {
+  const cards = [...cardGrid.querySelectorAll('.pdf-card')];
+  return cards.map(c => files.find(f => f.id === parseInt(c.dataset.id))).filter(Boolean);
+}
+
+// ── LocalStorage persistence ─────────────────────────────────
+function saveState() {
+  const meta = files.map(f => ({
+    id: f.id, name: f.name, size: f.size, rotation: f.rotation
+  }));
+  const order = [...cardGrid.querySelectorAll('.pdf-card')]
+    .map(c => parseInt(c.dataset.id));
+
+  const state = {
+    meta, order,
+    outputName: outputName.value,
+    nameEdited,
+    timestamp: Date.now()
+  };
+
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+}
+
+function loadSavedState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const state = JSON.parse(raw);
+    if (Date.now() - state.timestamp > EXPIRE_MS) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return state;
+  } catch { return null; }
+}
+
+function clearSavedState() {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+// ── Restore banner ───────────────────────────────────────────
+function checkRestore() {
+  const state = loadSavedState();
+  if (!state || !state.meta || !state.meta.length) return;
+
+  const mins = Math.round((Date.now() - state.timestamp) / 60000);
+  const timeStr = mins < 60 ? `${mins}m ago` : `${Math.round(mins/60)}h ago`;
+
+  document.getElementById('restoreTime').textContent = `${state.meta.length} files · ${timeStr}`;
+  restoreBanner.classList.add('show');
+
+  document.getElementById('restoreBtn').addEventListener('click', () => {
+    restoreBanner.classList.remove('show');
+    restoreSession(state);
+  });
+
+  document.getElementById('dismissRestore').addEventListener('click', () => {
+    restoreBanner.classList.remove('show');
+    clearSavedState();
+  });
+}
+
+function restoreSession(state) {
+  // Restore output name
+  if (state.outputName) {
+    outputName.value = state.outputName;
+    nameEdited = state.nameEdited || false;
+  }
+
+  // We can't restore file content; prompt user to re-upload
+  showToast(`Restored ${state.meta.length} file names. Please re-upload the files.`, 'info', 5000);
+
+  // Show workspace with placeholder cards
+  state.meta.forEach(m => {
+    const entry = { id: m.id, file: null, name: m.name, size: m.size, rotation: m.rotation };
+    nextId = Math.max(nextId, m.id + 1);
+    files.push(entry);
+
+    const card = document.createElement('div');
+    card.className = 'pdf-card';
+    card.dataset.id = entry.id;
+    card.innerHTML = `
+      <div class="card-preview" style="align-items:center;justify-content:center;flex-direction:column;gap:6px;">
+        <div style="font-size:28px;opacity:.3">📄</div>
+        <span style="font-size:11px;color:var(--muted)">Re-upload needed</span>
+      </div>
+      <div class="card-actions">
+        <button class="card-btn card-btn-delete" title="Remove">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="card-info">
+        <div class="card-name">${escHtml(m.name)}</div>
+        <div class="card-meta">${formatSize(m.size)}</div>
+      </div>`;
+    card.querySelector('.card-btn-delete').addEventListener('click', (e) => {
+      e.stopPropagation(); removeFile(entry.id, card);
+    });
+    cardGrid.appendChild(card);
+  });
+
+  appendAddCard();
+  updateUI();
+}
+
+// ── Add card (inside grid) ───────────────────────────────────
+function appendAddCard() {
+  const existing = cardGrid.querySelector('.add-card');
+  if (existing) return;
+
+  const el = document.createElement('label');
+  el.className = 'add-card';
+  el.innerHTML = `
+    <input type="file" accept=".pdf" multiple />
+    <div class="add-card-icon">+</div>
+    <span>Add PDF</span>`;
+  el.querySelector('input').addEventListener('change', e => {
+    addFiles(e.target.files);
+    e.target.value = '';
+  });
+  cardGrid.appendChild(el);
+}
+
+// ── Event: file inputs ───────────────────────────────────────
+['addFilesInput','addFolderInput','dropInput'].forEach(id => {
+  document.getElementById(id)?.addEventListener('change', e => {
+    addFiles(e.target.files);
+    e.target.value = '';
+  });
+});
+
+// ── Drag & drop on empty state ───────────────────────────────
+const dropZone = document.getElementById('dropZone');
+['dragenter','dragover'].forEach(ev =>
+  dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); }));
+['dragleave','drop'].forEach(ev =>
+  dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragover'); }));
+dropZone.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+
+// Also support drop on workspace
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+});
+
+// ── PDF Preview Modal ────────────────────────────────────────
+const previewModal   = document.getElementById('previewModal');
+const previewBody    = document.getElementById('previewBody');
+const previewTitle   = document.getElementById('previewTitle');
+const previewPageInfo = document.getElementById('previewPageInfo');
+const prevPageBtn    = document.getElementById('prevPageBtn');
+const nextPageBtn    = document.getElementById('nextPageBtn');
+const previewClose   = document.getElementById('previewClose');
+const previewBackdrop = document.getElementById('previewBackdrop');
+
+let previewPdfDoc  = null;
+let previewCurrent = 1;
+let previewTotal   = 1;
+let previewRotation = 0;
+
+async function openPreview(entry) {
+  if (!entry.file) { showToast('Re-upload the file to preview it', 'error'); return; }
+
+  previewTitle.textContent = entry.name;
+  previewRotation = entry.rotation;
+  previewBody.innerHTML = `<div class="preview-loading"><div class="spinner" style="width:32px;height:32px;border-width:3px;"></div><span>Rendering pages…</span></div>`;
+  previewModal.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  try {
+    const ab = await entry.file.arrayBuffer();
+    previewPdfDoc = await pdfjsLib.getDocument({ data: ab }).promise;
+    previewTotal = previewPdfDoc.numPages;
+    previewCurrent = 1;
+    await renderAllPreviewPages();
+  } catch (err) {
+    previewBody.innerHTML = `<div class="preview-loading"><span style="color:var(--accent)">Failed to load PDF</span></div>`;
+  }
+}
+
+async function renderAllPreviewPages() {
+  if (!previewPdfDoc) return;
+  previewPageInfo.textContent = `${previewTotal} page${previewTotal !== 1 ? 's' : ''}`;
+  prevPageBtn.style.display = 'none';
+  nextPageBtn.style.display = 'none';
+  previewBody.innerHTML = '';
+
+  for (let i = 1; i <= previewTotal; i++) {
+    const wrap = document.createElement('div');
+    wrap.className = 'preview-page-wrap';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'preview-page-label';
+    lbl.textContent = `${i} / ${previewTotal}`;
+
+    const canvas = document.createElement('canvas');
+    wrap.appendChild(canvas);
+    wrap.appendChild(lbl);
+    previewBody.appendChild(wrap);
+
+    // render async, don't block
+    (async () => {
+      try {
+        const page = await previewPdfDoc.getPage(i);
+        const vp = page.getViewport({ scale: 1 });
+        // Fit to ~640px width at 2x for sharpness
+        const scale = (Math.min(640, window.innerWidth - 80) / vp.width) * 1.5;
+        const viewport = page.getViewport({ scale, rotation: previewRotation });
+        canvas.width  = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      } catch {}
+    })();
+  }
+}
+
+function closePreview() {
+  previewModal.classList.remove('show');
+  document.body.style.overflow = '';
+  previewPdfDoc = null;
+  previewBody.innerHTML = '';
+}
+
+previewClose.addEventListener('click', closePreview);
+previewBackdrop.addEventListener('click', closePreview);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
+
+// ── Helpers ──────────────────────────────────────────────────
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ─────────────────────────────────────────────────────
+appendAddCard();
+checkRestore();
+</script>
+</body>
+</html>
