@@ -1,1415 +1,1492 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>PDF Studio — Merge & Edit</title>
-
-<!-- Fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,700;1,400;1,700&display=swap" rel="stylesheet" />
-
-<!-- Libraries -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,700;1,400;1,700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-
+<script>
+tailwind.config = {
+  darkMode: ['selector', '[data-theme="dark"]'],
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['DM Sans', 'sans-serif'],
+        mono: ['DM Mono', 'monospace'],
+        display: ['Playfair Display', 'serif'],
+      },
+      colors: {
+        accent:  { DEFAULT: '#E8521A', hover: '#D4471A' },
+        accent2: { DEFAULT: '#1A56E8' },
+        surface: { DEFAULT: '#ffffff', dark: '#1C1B1A' },
+        base:    { DEFAULT: '#F5F3EF', dark: '#111010' },
+        card:    { DEFAULT: '#ffffff', dark: '#242322' },
+        border:  { DEFAULT: '#E2DDD8', dark: '#2E2C2A' },
+        tx:      { DEFAULT: '#1A1714', dark: '#F0EDE8' },
+        mu:      { DEFAULT: '#7D756E', dark: '#847D76' },
+      },
+    }
+  }
+}
+</script>
 <style>
-  /* ─── Reset & Base ──────────────────────────────────────── */
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg:        #F5F3EF;
-    --surface:   #FFFFFF;
-    --card-bg:   #FFFFFF;
-    --border:    #E2DDD8;
-    --accent:    #E8521A;
-    --accent2:   #1A56E8;
-    --text:      #1A1714;
-    --muted:     #7D756E;
-    --shadow:    0 2px 12px rgba(0,0,0,0.07);
-    --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
-    --radius:    12px;
-    --nav-h:     64px;
-    --transition: 0.18s cubic-bezier(.4,0,.2,1);
-  }
-
-  [data-theme="dark"] {
-    --bg:        #111010;
-    --surface:   #1C1B1A;
-    --card-bg:   #242322;
-    --border:    #2E2C2A;
-    --accent:    #F4652A;
-    --accent2:   #4D82FF;
-    --text:      #F0EDE8;
-    --muted:     #847D76;
-    --shadow:    0 2px 12px rgba(0,0,0,0.3);
-    --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
-  }
-
-  html { scroll-behavior: smooth; }
-
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    transition: background var(--transition), color var(--transition);
-    overflow-x: hidden;
-  }
-
-  /* ─── Noise Texture Overlay ─────────────────────────────── */
-  body::before {
-    content: '';
-    position: fixed; inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
-    pointer-events: none; z-index: 9999;
-    opacity: .6;
-  }
-
-  /* ─── NAV ───────────────────────────────────────────────── */
-  nav {
-    position: sticky; top: 0; z-index: 100;
-    height: var(--nav-h);
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center;
-    padding: 0 24px; gap: 12px;
-    backdrop-filter: blur(10px);
-    transition: background var(--transition), border-color var(--transition);
-  }
-
-  .nav-brand {
-    display: flex; align-items: center; gap: 10px;
-    margin-right: 16px; flex-shrink: 0;
-  }
-
-  .nav-brand-icon {
-    width: 32px; height: 32px;
-    background: var(--accent);
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-  }
-
-  .nav-brand-icon svg { width: 18px; height: 18px; fill: #fff; }
-
-  .nav-brand-name {
-    font-family: 'Playfair Display', serif;
-    font-weight: 700;
-    font-size: 17px;
-    letter-spacing: -0.01em;
-    color: var(--text);
-  }
-
-  .nav-brand-name em {
-    font-style: italic;
-    font-weight: 400;
-    color: var(--accent);
-  }
-
-  .nav-divider {
-    width: 1px; height: 28px;
-    background: var(--border);
-    margin: 0 4px; flex-shrink: 0;
-  }
-
-  .btn {
-    display: inline-flex; align-items: center; gap: 7px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px; font-weight: 500;
-    cursor: pointer; border: none;
-    transition: all var(--transition);
-    white-space: nowrap; flex-shrink: 0;
-    outline: none;
-  }
-
-  .btn:active { transform: scale(0.97); }
-
-  .btn-ghost {
-    background: transparent;
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-  .btn-ghost:hover { background: var(--bg); border-color: var(--muted); }
-
-  .btn-primary {
-    background: var(--accent);
-    color: #fff;
-    box-shadow: 0 2px 8px rgba(232,82,26,0.25);
-  }
-  .btn-primary:hover { filter: brightness(1.08); box-shadow: 0 4px 16px rgba(232,82,26,0.35); }
-  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; filter: none; box-shadow: none; }
-
-  .btn-icon {
-    width: 36px; height: 36px; padding: 0;
-    justify-content: center;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--muted);
-    border: 1px solid transparent;
-  }
-  .btn-icon:hover { background: var(--bg); border-color: var(--border); color: var(--text); }
-
-  /* File name input */
-  .output-name-wrap {
-    display: flex; align-items: center; gap: 8px;
-    flex: 1; max-width: 340px; min-width: 160px;
-  }
-
-  .output-name-wrap label {
-    font-size: 12px; color: var(--muted);
-    white-space: nowrap; font-weight: 500;
-    letter-spacing: 0.02em;
-  }
-
-  #outputName {
-    flex: 1;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 7px 12px;
-    font-family: 'DM Mono', monospace;
-    font-size: 13px;
-    color: var(--text);
-    outline: none;
-    transition: border-color var(--transition), background var(--transition);
-    min-width: 0;
-  }
-  #outputName:focus { border-color: var(--accent); background: var(--surface); }
-
-  .nav-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-
-  /* ─── EMPTY STATE ───────────────────────────────────────── */
-  #emptyState {
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    min-height: calc(100vh - var(--nav-h));
-    gap: 20px; padding: 40px 24px;
-    text-align: center;
-    animation: fadeUp .4s ease both;
-  }
-
-  .empty-icon {
-    width: 80px; height: 80px;
-    background: linear-gradient(135deg, var(--accent) 0%, #F4982A 100%);
-    border-radius: 20px;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 8px 32px rgba(232,82,26,0.2);
-  }
-
-  .empty-icon svg { width: 40px; height: 40px; fill: #fff; }
-
-  #emptyState h1 {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(26px, 3.5vw, 38px);
-    font-weight: 700; letter-spacing: -0.02em;
-    color: var(--text);
-    line-height: 1.1;
-  }
-
-  #emptyState h1 em {
-    font-style: italic;
-    font-weight: 400;
-    color: var(--accent);
-  }
-
-  #emptyState p { font-size: 15px; color: var(--muted); max-width: 380px; line-height: 1.6; }
-
-  .drop-zone {
-    width: min(480px, 100%);
-    border: 2px dashed var(--border);
-    border-radius: 20px;
-    padding: 40px 32px;
-    display: flex; flex-direction: column; align-items: center; gap: 12px;
-    cursor: pointer;
-    transition: all var(--transition);
-    position: relative;
-  }
-  .drop-zone:hover, .drop-zone.dragover {
-    border-color: var(--accent);
-    background: rgba(232,82,26,0.04);
-  }
-  .drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-  .drop-zone span { font-size: 14px; color: var(--muted); }
-  .drop-zone strong { font-size: 15px; font-weight: 500; color: var(--text); }
-
-  /* ─── WORKSPACE ─────────────────────────────────────────── */
-  #workspace {
-    display: none;
-    padding: 28px 24px 80px;
-    max-width: 1400px; margin: 0 auto;
-    animation: fadeUp .3s ease both;
-  }
-
-  .workspace-header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 24px; gap: 12px;
-  }
-
-  .file-count {
-    font-size: 13px; color: var(--muted); font-weight: 500;
-  }
-
-  .file-count strong {
-    font-family: 'Playfair Display', serif;
-    font-style: italic;
-    font-size: 15px;
-    color: var(--text);
-    font-weight: 400;
-  }
-
-  /* ─── CARDS GRID ────────────────────────────────────────── */
-  #cardGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 16px;
-  }
-
-  /* ─── PDF CARD ──────────────────────────────────────────── */
-  .pdf-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    position: relative;
-    cursor: grab;
-    transition: box-shadow var(--transition), border-color var(--transition), transform var(--transition);
-    animation: cardIn .25s ease both;
-    user-select: none;
-  }
-
-  .pdf-card:hover {
-    box-shadow: var(--shadow-lg);
-    border-color: transparent;
-    transform: translateY(-2px);
-  }
-
-  .pdf-card.sortable-ghost {
-    opacity: 0.35;
-    transform: scale(0.97);
-  }
-
-  .pdf-card.sortable-drag {
-    cursor: grabbing;
-    box-shadow: var(--shadow-lg);
-    transform: rotate(1.5deg) scale(1.03);
-  }
-
-  .card-preview {
-    width: 100%; aspect-ratio: 3/4;
-    background: var(--bg);
-    display: flex; align-items: center; justify-content: center;
-    overflow: hidden; position: relative;
-  }
-
-  .card-preview canvas {
-    width: 100% !important; height: 100% !important;
-    object-fit: contain;
-    transition: transform .3s ease;
-  }
-
-  .card-loading {
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-  }
-
-  .spinner {
-    width: 24px; height: 24px;
-    border: 2px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin .7s linear infinite;
-  }
-
-  .card-loading span { font-size: 11px; color: var(--muted); }
-
-  /* Card overlay actions */
-  .card-actions {
-    position: absolute; top: 8px; right: 8px;
-    display: flex; gap: 4px;
-    opacity: 0; transform: translateY(-4px);
-    transition: opacity var(--transition), transform var(--transition);
-  }
-  .pdf-card:hover .card-actions { opacity: 1; transform: translateY(0); }
-
-  .card-btn {
-    width: 28px; height: 28px;
-    border-radius: 6px;
-    border: none; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    backdrop-filter: blur(8px);
-    transition: all var(--transition);
-    font-size: 14px;
-  }
-
-  .card-btn-delete {
-    background: rgba(255,255,255,0.9);
-    color: #E8521A;
-  }
-  .card-btn-delete:hover { background: #E8521A; color: #fff; }
-
-  .card-btn-rotate {
-    background: rgba(255,255,255,0.9);
-    color: var(--text);
-  }
-  .card-btn-rotate:hover { background: var(--text); color: var(--surface); }
-
-  [data-theme="dark"] .card-btn-delete,
-  [data-theme="dark"] .card-btn-rotate {
-    background: rgba(36,35,34,0.9);
-  }
-
-  .card-badge {
-    position: absolute; top: 8px; left: 8px;
-    background: rgba(0,0,0,0.55);
-    color: #fff;
-    font-family: 'DM Mono', monospace;
-    font-size: 10px; font-weight: 500;
-    padding: 2px 6px; border-radius: 4px;
-    backdrop-filter: blur(4px);
-    opacity: 0;
-    transition: opacity var(--transition);
-  }
-  .pdf-card:hover .card-badge { opacity: 1; }
-
-  .card-info {
-    padding: 10px 12px;
-    border-top: 1px solid var(--border);
-  }
-
-  .card-name {
-    font-size: 11.5px; font-weight: 500;
-    word-break: break-word;
-    overflow-wrap: anywhere;
-    white-space: normal;
-    color: var(--text);
-    line-height: 1.45;
-  }
-
-  /* copy btn */
-  .card-btn-copy {
-    background: rgba(255,255,255,0.9);
-    color: #22a06b;
-  }
-  .card-btn-copy:hover { background: #22a06b; color: #fff; }
-  [data-theme="dark"] .card-btn-copy { background: rgba(36,35,34,0.9); }
-
-  .card-meta {
-    font-size: 11px; color: var(--muted);
-    margin-top: 2px;
-    display: flex; align-items: center; gap: 6px;
-  }
-
-  .rotation-badge {
-    display: inline-flex; align-items: center; gap: 3px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 1px 5px;
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    color: var(--accent);
-    font-weight: 500;
-  }
-
-  /* eye btn */
-  .card-btn-preview {
-    background: rgba(255,255,255,0.9);
-    color: var(--accent2);
-  }
-  .card-btn-preview:hover { background: var(--accent2); color: #fff; }
-  [data-theme="dark"] .card-btn-preview { background: rgba(36,35,34,0.9); }
-
-  /* ─── PDF PREVIEW MODAL ─────────────────────────────────── */
-  #previewModal {
-    position: fixed; inset: 0; z-index: 600;
-    display: none; align-items: center; justify-content: center;
-    padding: 20px;
-  }
-  #previewModal.show { display: flex; animation: fadeIn .2s ease; }
-
-  .preview-backdrop {
-    position: absolute; inset: 0;
-    background: rgba(0,0,0,0.72);
-    backdrop-filter: blur(12px);
-    cursor: pointer;
-  }
-
-  .preview-shell {
-    position: relative; z-index: 1;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    box-shadow: var(--shadow-lg);
-    width: min(860px, 100%);
-    max-height: 92vh;
-    display: flex; flex-direction: column;
-    animation: popIn .25s cubic-bezier(.34,1.56,.64,1) both;
-    overflow: hidden;
-  }
-
-  .preview-header {
-    display: flex; align-items: center; gap: 12px;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
-  .preview-header h2 {
-    font-size: 14px; font-weight: 600;
-    flex: 1; min-width: 0;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-
-  .preview-page-nav {
-    display: flex; align-items: center; gap: 6px;
-    flex-shrink: 0;
-  }
-
-  .preview-page-nav span {
-    font-size: 12px; color: var(--muted);
-    font-family: 'DM Mono', monospace;
-    min-width: 60px; text-align: center;
-  }
-
-  .preview-body {
-    flex: 1; overflow-y: auto;
-    padding: 24px;
-    display: flex; flex-direction: column; align-items: center; gap: 16px;
-    background: var(--bg);
-  }
-
-  .preview-page-wrap {
-    width: 100%; max-width: 640px;
-    background: var(--surface);
-    border-radius: 8px;
-    box-shadow: var(--shadow);
-    overflow: hidden;
-    position: relative;
-  }
-
-  .preview-page-wrap canvas {
-    width: 100% !important; height: auto !important;
-    display: block;
-  }
-
-  .preview-page-label {
-    position: absolute; bottom: 8px; right: 10px;
-    font-family: 'DM Mono', monospace;
-    font-size: 10px; color: rgba(0,0,0,0.4);
-    background: rgba(255,255,255,0.8);
-    padding: 2px 6px; border-radius: 4px;
-    backdrop-filter: blur(4px);
-  }
-
-  [data-theme="dark"] .preview-page-label {
-    color: rgba(255,255,255,0.5);
-    background: rgba(0,0,0,0.5);
-  }
-
-  .preview-loading {
-    display: flex; flex-direction: column; align-items: center;
-    gap: 12px; padding: 60px 0; color: var(--muted);
-    font-size: 13px;
-  }
-
-  .preview-close {
-    width: 32px; height: 32px;
-    border-radius: 8px; border: 1px solid var(--border);
-    background: transparent; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    color: var(--muted); font-size: 16px;
-    transition: all var(--transition); flex-shrink: 0;
-  }
-  .preview-close:hover { background: var(--bg); color: var(--text); }
-
-  /* ─── ADD CARD ──────────────────────────────────────────── */
-  .add-card {
-    border: 2px dashed var(--border);
-    border-radius: var(--radius);
-    aspect-ratio: unset; min-height: 180px;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 8px; cursor: pointer;
-    transition: all var(--transition);
-    color: var(--muted);
-    background: transparent;
-    position: relative;
-  }
-  .add-card input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-  .add-card:hover { border-color: var(--accent); color: var(--accent); background: rgba(232,82,26,0.04); }
-
-  .add-card-icon {
-    width: 40px; height: 40px;
-    border-radius: 10px;
-    background: var(--bg);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 22px; font-weight: 300;
-    transition: all var(--transition);
-  }
-  .add-card:hover .add-card-icon {
-    background: rgba(232,82,26,0.1);
-  }
-
-  .add-card span { font-size: 13px; font-weight: 500; }
-
-  /* ─── TOAST ─────────────────────────────────────────────── */
-  #toast {
-    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
-    background: var(--text); color: var(--bg);
-    padding: 10px 20px; border-radius: 10px;
-    font-size: 13px; font-weight: 500;
-    box-shadow: var(--shadow-lg);
-    opacity: 0; transition: all .25s ease;
-    pointer-events: none; white-space: nowrap;
-    z-index: 1000;
-    display: flex; align-items: center; gap: 8px;
-  }
-  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  #toast.success .toast-dot { background: #4CAF50; }
-  #toast.error .toast-dot { background: var(--accent); }
-  #toast.info .toast-dot { background: var(--accent2); }
-
-  .toast-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-
-  /* ─── PROGRESS OVERLAY ──────────────────────────────────── */
-  #progressOverlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(8px);
-    z-index: 500;
-    display: none; align-items: center; justify-content: center;
-  }
-
-  #progressOverlay.show { display: flex; animation: fadeIn .2s ease; }
-
-  .progress-box {
-    background: var(--surface);
-    border-radius: 20px;
-    padding: 36px 48px;
-    text-align: center;
-    box-shadow: var(--shadow-lg);
-    border: 1px solid var(--border);
-    min-width: 280px;
-    animation: popIn .25s cubic-bezier(.34,1.56,.64,1) both;
-  }
-
-  .progress-box h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-  .progress-box p { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
-
-  .progress-bar-wrap {
-    height: 4px; background: var(--border);
-    border-radius: 2px; overflow: hidden;
-  }
-  .progress-bar {
-    height: 100%; background: var(--accent);
-    border-radius: 2px;
-    transition: width .3s ease;
-    width: 0%;
-  }
-
-  .progress-icon {
-    width: 48px; height: 48px;
-    background: linear-gradient(135deg, var(--accent), #F4982A);
-    border-radius: 14px;
-    display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 16px;
-  }
-  .progress-icon svg { width: 24px; height: 24px; fill: #fff; }
-
-  /* ─── RESTORE BANNER ────────────────────────────────────── */
-  #restoreBanner {
-    display: none;
-    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px 20px;
-    box-shadow: var(--shadow-lg);
-    z-index: 200;
-    display: none; align-items: center; gap: 12px;
-    font-size: 13px;
-    animation: slideUp .3s ease both;
-    white-space: nowrap;
-  }
-
-  #restoreBanner.show { display: flex; }
-
-  #restoreBanner span { color: var(--text); }
-  #restoreBanner .muted { color: var(--muted); }
-
-  /* ─── SCROLLBAR ─────────────────────────────────────────── */
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
-
-  /* ─── ANIMATIONS ────────────────────────────────────────── */
-  @keyframes fadeUp   { from { opacity:0; transform: translateY(16px); } to { opacity:1; transform: translateY(0); } }
-  @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
-  @keyframes cardIn   { from { opacity:0; transform: scale(0.94) translateY(8px); } to { opacity:1; transform: scale(1) translateY(0); } }
-  @keyframes spin     { to { transform: rotate(360deg); } }
-  @keyframes popIn    { from { opacity:0; transform: scale(0.9); } to { opacity:1; transform: scale(1); } }
-  @keyframes slideUp  { from { opacity:0; transform: translateX(-50%) translateY(12px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
-
-  /* ─── RESPONSIVE ────────────────────────────────────────── */
-  @media (max-width: 640px) {
-    nav { gap: 8px; padding: 0 14px; }
-    .nav-brand-name { display: none; }
-    .output-name-wrap label { display: none; }
-    #workspace { padding: 16px 14px 60px; }
-    #cardGrid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-  }
-
-  /* ─── THEME TOGGLE ──────────────────────────────────────── */
-  .theme-toggle {
-    width: 36px; height: 20px;
-    background: var(--border);
-    border-radius: 10px;
-    position: relative; cursor: pointer;
-    transition: background var(--transition);
-    border: none;
-    flex-shrink: 0;
-  }
-  .theme-toggle::after {
-    content: '';
-    position: absolute; top: 2px; left: 2px;
-    width: 16px; height: 16px;
-    border-radius: 50%;
-    background: var(--surface);
-    transition: transform var(--transition), background var(--transition);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-  }
-  [data-theme="dark"] .theme-toggle { background: var(--accent); }
-  [data-theme="dark"] .theme-toggle::after { transform: translateX(16px); }
-
-  .theme-label { font-size: 12px; color: var(--muted); }
-
-  /* Dragging global state */
-  body.is-dragging .pdf-card { transition: none; }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:'DM Sans',sans-serif;min-height:100vh}
+
+  /* noise */
+  body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.45;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E")}
+
+  ::-webkit-scrollbar{width:5px;height:5px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:#d0ccc8;border-radius:99px}
+  [data-theme="dark"] ::-webkit-scrollbar-thumb{background:#3a3836}
+
+  /* card grid responsive */
+  .card-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(158px,1fr))}
+  @media(max-width:500px){.card-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}}
+
+  /* drag states */
+  .sortable-ghost{opacity:.2!important;background:#F5F3EF!important;border:2px dashed #E8521A!important}
+  .sortable-fallback{opacity:.5!important;box-shadow:0 20px 40px rgba(0,0,0,.2)!important;cursor:grabbing!important;}
+  .sortable-drag{opacity:.5!important;cursor:grabbing!important;}
+
+  /* card hover reveals actions */
+  .pdf-card:hover .card-actions{opacity:1;transform:translateY(0)}
+  .pdf-card:hover .card-badge{opacity:1}
+
+  /* drop overlay */
+  #dropOverlay{pointer-events:none;opacity:0;transition:opacity .18s}
+  #dropOverlay.active{opacity:1;pointer-events:all}
+
+  /* dropdown */
+  .ddmenu{transform-origin:top left;display:none}
+  .ddmenu.open{display:block;animation:popIn .18s cubic-bezier(.34,1.56,.64,1) both}
+
+  /* modal blur */
+  .mbackdrop{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+
+  /* Playfair helpers */
+  .pf-bold{font-family:'Playfair Display',serif;font-weight:700}
+  .pf-italic{font-family:'Playfair Display',serif;font-style:italic;font-weight:400}
+
+  /* spinner */
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .spin{animation:spin .75s linear infinite}
+
+  /* result screen */
+  @keyframes resultSlideIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes scaleRing{from{transform:scale(0);opacity:0}to{transform:scale(1.4);opacity:0}}
+  @keyframes drawCheck{to{stroke-dashoffset:0}}
+  @keyframes confettiFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(120vh) rotate(720deg);opacity:0}}
+  .confetti-piece{position:fixed;top:-20px;pointer-events:none;z-index:9998;animation:confettiFall linear both}
+
+  /* animations */
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes cardIn{from{opacity:0;transform:scale(.94) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+  @keyframes popIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+  .anim-fade-up{animation:fadeUp .35s ease both}
+  .anim-card-in{animation:cardIn .22s ease both}
+  .anim-pop-in{animation:popIn .25s cubic-bezier(.34,1.56,.64,1) both}
+
+  /* file input invisible */
+  .finput{position:absolute;inset:0;opacity:0;cursor:pointer}
 </style>
 </head>
-<body>
+<body class="bg-[#F5F3EF] dark:bg-[#111010] text-[#1A1714] dark:text-[#F0EDE8] transition-colors duration-200">
 
-<!-- ─── NAV ─── -->
-<nav>
-  <div class="nav-brand">
-    <div class="nav-brand-icon">
-      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+<!-- ══════════ NAV ══════════ -->
+<nav class="sticky top-0 z-50 h-[60px] bg-white dark:bg-[#1C1B1A] border-b border-[#E2DDD8] dark:border-[#2E2C2A] flex items-center gap-2 px-3 md:px-5 backdrop-blur-md transition-colors">
+
+  <!-- Brand -->
+  <div class="flex items-center gap-2 mr-2 flex-shrink-0">
+    <div class="w-8 h-8 rounded-lg bg-[#E8521A] flex items-center justify-center">
+      <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>
     </div>
-    <span class="nav-brand-name">PDF <em>Studio</em></span>
+    <span class="hidden sm:flex items-baseline">
+      <span class="pf-bold text-[17px] tracking-tight">PDF</span>
+      <span class="pf-italic text-[17px] text-[#E8521A] ml-1">Studio</span>
+    </span>
   </div>
 
-  <div class="nav-divider"></div>
+  <div class="w-px h-6 bg-[#E2DDD8] dark:bg-[#2E2C2A] hidden sm:block flex-shrink-0"></div>
 
   <!-- Add Files -->
-  <label class="btn btn-ghost" style="cursor:pointer; position:relative; overflow:hidden;">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-    Add Files
-    <input type="file" id="addFilesInput" accept=".pdf" multiple style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
+  <label class="relative flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#E2DDD8] dark:border-[#2E2C2A] text-[13px] font-medium cursor-pointer hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    <span class="hidden sm:inline">Add Files</span>
+    <input type="file" id="addFilesInput" accept=".pdf" multiple class="finput"/>
   </label>
 
   <!-- Add Folder -->
-  <label class="btn btn-ghost" style="cursor:pointer; position:relative; overflow:hidden;">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-    Add Folder
-    <input type="file" id="addFolderInput" accept=".pdf" multiple webkitdirectory style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
+  <label class="relative flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#E2DDD8] dark:border-[#2E2C2A] text-[13px] font-medium cursor-pointer hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    <span class="hidden md:inline">Folder</span>
+    <input type="file" id="addFolderInput" accept=".pdf" multiple webkitdirectory class="finput"/>
   </label>
 
-  <div class="nav-divider"></div>
+  <div class="w-px h-6 bg-[#E2DDD8] dark:bg-[#2E2C2A] flex-shrink-0"></div>
 
-  <!-- Output name -->
-  <div class="output-name-wrap">
-    <label for="outputName">Output:</label>
-    <input type="text" id="outputName" placeholder="merged.pdf" spellcheck="false" />
+  <!-- Tools dropdown -->
+  <div class="relative flex-shrink-0" id="ddWrap">
+    <button id="ddBtn" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#E2DDD8] dark:border-[#2E2C2A] text-[13px] font-medium hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      Tools
+      <svg id="ddChev" class="w-3 h-3 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div id="ddMenu" class="ddmenu absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#1C1B1A] border border-[#E2DDD8] dark:border-[#2E2C2A] rounded-xl shadow-xl overflow-hidden z-50">
+      <div class="px-3 py-1.5 text-[10px] font-semibold tracking-widest uppercase text-[#7D756E] dark:text-[#847D76] border-b border-[#E2DDD8] dark:border-[#2E2C2A]">Organize</div>
+      <button class="ti w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors text-left" data-tool="merge">
+        <svg class="w-4 h-4 text-[#E8521A] shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 17H5a2 2 0 0 0-2 2v0a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v0a2 2 0 0 0-2-2h-4M12 3v12"/><polyline points="8 11 12 15 16 11"/></svg>
+        Merge PDFs
+      </button>
+      <button class="ti w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors text-left" data-tool="split">
+        <svg class="w-4 h-4 text-[#1A56E8] shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+        Split PDF
+      </button>
+      <button class="ti w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors text-left" data-tool="remove-pages">
+        <svg class="w-4 h-4 text-orange-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m5 0V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg>
+        Remove Pages
+      </button>
+      <button class="ti w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors text-left" onclick="window.location.href='remove-pages.html'" >
+        <svg class="w-4 h-4 text-orange-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m5 0V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg>
+        Remove Pages E-INV
+      </button>
+      <div class="px-3 py-1.5 text-[10px] font-semibold tracking-widest uppercase text-[#7D756E] dark:text-[#847D76] border-b border-t border-[#E2DDD8] dark:border-[#2E2C2A]">Edit</div>
+      <button class="ti w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors text-left" data-tool="rotate-all">
+        <svg class="w-4 h-4 text-violet-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+        Rotate All Pages
+      </button>
+      <button class="ti w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors text-left" data-tool="compress">
+        <svg class="w-4 h-4 text-teal-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Compress PDF
+      </button>
+      <button class="ti w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors text-left" data-tool="watermark">
+        <svg class="w-4 h-4 text-sky-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Add Watermark
+      </button>
+      <div class="px-3 py-1.5 text-[10px] font-semibold tracking-widest uppercase text-[#7D756E] dark:text-[#847D76] border-b border-t border-[#E2DDD8] dark:border-[#2E2C2A]">Security</div>
+      <button class="ti w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors text-left" data-tool="lock">
+        <svg class="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Lock PDF
+      </button>
+      <button class="ti w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors text-left" data-tool="unlock">
+        <svg class="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+        Unlock PDF
+      </button>
+    </div>
   </div>
 
-  <div class="nav-right">
-    <!-- Dark mode -->
-    <span class="theme-label" id="themeLabel">Light</span>
-    <button class="theme-toggle" id="themeToggle" title="Toggle dark mode" aria-label="Toggle dark mode"></button>
+  <div class="w-px h-6 bg-[#E2DDD8] dark:bg-[#2E2C2A] flex-shrink-0"></div>
 
-    <!-- Merge -->
-    <button class="btn btn-primary" id="mergeBtn" disabled>
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H5a2 2 0 0 0-2 2v0a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v0a2 2 0 0 0-2-2h-4"/><polyline points="12 3 12 15"/><polyline points="8 11 12 15 16 11"/></svg>
-      Merge & Download
+  <!-- Output name -->
+  <div class="flex items-center gap-1.5 flex-1 min-w-0 max-w-[260px]">
+    <span class="hidden lg:block text-[11px] font-medium text-[#7D756E] dark:text-[#847D76] whitespace-nowrap shrink-0">Output:</span>
+    <input type="text" id="outputName" placeholder="merged.pdf" spellcheck="false"
+      class="flex-1 min-w-0 bg-[#F5F3EF] dark:bg-[#111010] border border-[#E2DDD8] dark:border-[#2E2C2A] rounded-lg px-3 py-1.5 text-[12px] font-mono outline-none focus:border-[#E8521A] transition-colors"/>
+  </div>
+
+  <!-- Right -->
+  <div class="ml-auto flex items-center gap-2 shrink-0">
+    <button id="themeBtn" class="w-8 h-8 rounded-lg border border-[#E2DDD8] dark:border-[#2E2C2A] flex items-center justify-center hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors text-[#7D756E] dark:text-[#847D76]">
+      <svg id="sunIco" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg id="moonIco" class="w-4 h-4 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button id="mergeBtn" disabled class="flex items-center gap-1.5 px-3 py-1.5 bg-[#E8521A] hover:bg-[#D4471A] text-white text-[13px] font-medium rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 17H5a2 2 0 0 0-2 2v0a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v0a2 2 0 0 0-2-2h-4M12 3v12"/><polyline points="8 11 12 15 16 11"/></svg>
+      <span class="hidden sm:inline">Merge & Download</span>
+      <span class="sm:hidden">Merge</span>
     </button>
   </div>
 </nav>
 
-<!-- ─── EMPTY STATE ─── -->
-<div id="emptyState">
-  <div class="empty-icon">
-    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>
+<!-- ══════════ GLOBAL DROP OVERLAY ══════════ -->
+<div id="dropOverlay" class="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-4" style="background:rgba(232,82,26,.07);border:3px dashed #E8521A;">
+  <div class="w-16 h-16 rounded-2xl bg-[#E8521A] flex items-center justify-center shadow-xl">
+    <svg class="w-8 h-8 fill-white" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>
   </div>
-  <h1>Merge &amp; <em>Edit</em> PDFs</h1>
-  <p>Upload PDFs to reorder, rotate, and merge them into a single file — all in your browser.</p>
-
-  <div class="drop-zone" id="dropZone">
-    <input type="file" id="dropInput" accept=".pdf" multiple />
-    <div class="add-card-icon" style="width:48px;height:48px;font-size:26px;">⊕</div>
-    <strong>Drop PDFs here</strong>
-    <span>or click to browse files</span>
-  </div>
+  <p class="pf-bold text-2xl text-[#E8521A]">Drop PDFs anywhere</p>
+  <p class="text-sm text-[#7D756E]">Release to add files</p>
 </div>
 
-<!-- ─── WORKSPACE ─── -->
-<div id="workspace">
-  <div class="workspace-header">
-    <span class="file-count" id="fileCount">0 files</span>
+<!-- ══════════ EMPTY STATE ══════════ -->
+<div id="emptyState" class="flex flex-col items-center justify-center min-h-[calc(100vh-60px)] gap-6 px-6 py-12 text-center anim-fade-up">
+  <div class="w-20 h-20 rounded-[20px] flex items-center justify-center" style="background:linear-gradient(135deg,#E8521A,#F4982A);box-shadow:0 8px 32px rgba(232,82,26,.22)">
+    <svg class="w-10 h-10 fill-white" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>
   </div>
-  <div id="cardGrid"></div>
+  <div>
+    <h1 class="pf-bold text-[clamp(26px,4.5vw,44px)] tracking-tight leading-tight">
+      Merge &amp; <span class="pf-italic text-[#E8521A]">Edit</span> PDFs
+    </h1>
+    <p class="mt-2 text-[15px] text-[#7D756E] dark:text-[#847D76] max-w-sm mx-auto leading-relaxed">Reorder, rotate, split, lock — all locally in your browser.</p>
+  </div>
+  <label class="relative w-full max-w-[420px] border-2 border-dashed border-[#E2DDD8] dark:border-[#2E2C2A] rounded-2xl px-8 py-10 flex flex-col items-center gap-3 cursor-pointer hover:border-[#E8521A] hover:bg-[#E8521A]/5 transition-all group">
+    <input type="file" id="dropInput" accept=".pdf" multiple class="finput"/>
+    <div class="w-12 h-12 rounded-xl bg-[#F5F3EF] dark:bg-[#111010] flex items-center justify-center text-2xl group-hover:bg-[#E8521A]/10 transition-colors">⊕</div>
+    <strong class="text-[15px] font-medium">Drop PDFs here</strong>
+    <span class="text-sm text-[#7D756E] dark:text-[#847D76]">or click to browse · drop anywhere on screen</span>
+  </label>
 </div>
 
-<!-- ─── PDF PREVIEW MODAL ─── -->
-<div id="previewModal">
-  <div class="preview-backdrop" id="previewBackdrop"></div>
-  <div class="preview-shell">
-    <div class="preview-header">
-      <h2 id="previewTitle">Preview</h2>
-      <div class="preview-page-nav">
-        <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px;" id="prevPageBtn">← Prev</button>
-        <span id="previewPageInfo">Page 1 / 1</span>
-        <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px;" id="nextPageBtn">Next →</button>
+<!-- ══════════ WORKSPACE ══════════ -->
+<div id="workspace" class="hidden px-3 md:px-5 pt-5 pb-24 max-w-[1440px] mx-auto anim-fade-up">
+  <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
+    <p id="fileCount" class="text-[13px] text-[#7D756E] dark:text-[#847D76] font-medium"></p>
+    <button id="clearAllBtn" class="text-[12px] px-3 py-1.5 rounded-lg border border-[#E2DDD8] dark:border-[#2E2C2A] text-[#7D756E] dark:text-[#847D76] hover:bg-[#F5F3EF] dark:hover:bg-[#111010] hover:text-[#1A1714] dark:hover:text-[#F0EDE8] transition-colors">Clear all</button>
+  </div>
+  <div id="cardGrid" class="card-grid"></div>
+</div>
+
+<!-- ══════════ MERGE RESULT SCREEN ══════════ -->
+<div id="mergeResult" class="hidden fixed inset-0 z-[350] flex flex-col overflow-hidden" style="background:#0f0f0f">
+
+  <!-- ── Navbar ── -->
+  <div class="shrink-0 flex items-center justify-between px-4 md:px-7 h-[56px] border-b" style="background:#171717;border-color:#2a2a2a">
+    <div class="flex items-center gap-2.5">
+      <div class="w-7 h-7 rounded-lg bg-[#E8521A] flex items-center justify-center shrink-0">
+        <svg class="w-3.5 h-3.5 fill-white" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>
       </div>
-      <button class="preview-close" id="previewClose" title="Close">✕</button>
+      <span class="pf-bold text-[15px] tracking-tight text-white hidden sm:block">PDF <span class="pf-italic text-[#E8521A]">Studio</span></span>
     </div>
-    <div class="preview-body" id="previewBody">
-      <div class="preview-loading">
-        <div class="spinner" style="width:32px;height:32px;border-width:3px;"></div>
-        <span>Rendering pages…</span>
+    <!-- desktop nav actions -->
+    <div class="hidden md:flex items-center gap-2">
+      <button id="mrEditBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all text-gray-300 hover:text-white hover:bg-white/10" style="border:1px solid #333">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Edit PDF
+      </button>
+      <button id="mrNewBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all text-gray-300 hover:text-white hover:bg-white/10" style="border:1px solid #333">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        New Merge
+      </button>
+      <button id="mrShareBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all text-gray-300 hover:text-white hover:bg-white/10" style="border:1px solid #333">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Share Tool
+      </button>
+      <button id="mrDownBtn" class="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[12px] font-semibold bg-[#E8521A] hover:bg-[#D4471A] text-white transition-colors shadow-lg">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </button>
+    </div>
+    <!-- mobile hamburger -->
+    <button id="mrMobileMenuBtn" class="md:hidden w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-white transition-colors" style="border:1px solid #333">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="16" x2="21" y2="16"/></svg>
+    </button>
+  </div>
+
+  <!-- mobile drawer -->
+  <div id="mrMobileMenu" class="hidden md:hidden shrink-0 border-b px-4 py-3 flex flex-col gap-2" style="background:#1a1a1a;border-color:#2a2a2a">
+    <button id="mrEditBtnM" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-all text-left" style="border:1px solid #333">
+      <svg class="w-4 h-4 text-[#E8521A] shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Edit this PDF (go back)
+    </button>
+    <button id="mrNewBtnM" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-all text-left" style="border:1px solid #333">
+      <svg class="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      Start New Merge
+    </button>
+    <button id="mrShareBtnM" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-all text-left" style="border:1px solid #333">
+      <svg class="w-4 h-4 text-purple-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      Share this Tool
+    </button>
+    <button id="mrDownBtnM" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-semibold bg-[#E8521A] hover:bg-[#D4471A] text-white transition-colors">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download PDF
+    </button>
+  </div>
+
+  <!-- ── Main scroll area ── -->
+  <div class="flex-1 overflow-y-auto">
+
+    <!-- Hero section -->
+    <div class="flex flex-col items-center text-center pt-10 pb-8 px-4" style="background:linear-gradient(180deg,#1a1a1a 0%,#0f0f0f 100%)">
+
+      <!-- animated check -->
+      <div class="relative w-20 h-20 mb-5">
+        <div class="absolute inset-0 rounded-full" style="background:rgba(34,197,94,0.12);animation:scaleRing .6s ease both .15s;transform:scale(0)"></div>
+        <div class="absolute inset-[-6px] rounded-full opacity-20" style="background:radial-gradient(circle,#22c55e,transparent);animation:scaleRing .8s ease both .05s;transform:scale(0)"></div>
+        <div class="absolute inset-0 rounded-full flex items-center justify-center" style="background:linear-gradient(135deg,#22c55e,#16a34a);box-shadow:0 0 32px rgba(34,197,94,.35)">
+          <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="stroke-dasharray:32;stroke-dashoffset:32;animation:drawCheck .45s ease both .35s"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+      </div>
+
+      <h1 class="pf-bold text-[clamp(28px,5vw,48px)] tracking-tight text-white leading-none mb-2">
+        PDF <span class="pf-italic" style="color:#22c55e">Merged</span>
+      </h1>
+      <p class="text-[13px] mb-7" style="color:#6b7280" id="mrStats">0 files · 0 pages</p>
+
+      <!-- Filename card -->
+      <div class="w-full max-w-[480px] rounded-2xl overflow-hidden mb-6" style="background:#1e1e1e;border:1px solid #2d2d2d">
+        <div class="flex items-center gap-2 px-4 py-2 border-b" style="border-color:#2d2d2d">
+          <div class="w-2.5 h-2.5 rounded-full bg-red-500/70"></div>
+          <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/70"></div>
+          <div class="w-2.5 h-2.5 rounded-full bg-green-500/70"></div>
+          <span class="text-[10px] ml-auto font-mono" style="color:#555">output</span>
+        </div>
+        <div class="flex items-center gap-3 px-4 py-3.5">
+          <svg class="w-5 h-5 shrink-0" style="color:#E8521A" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <input id="mrFileName" type="text" spellcheck="false"
+            class="flex-1 min-w-0 bg-transparent outline-none font-mono text-[14px] text-white placeholder-gray-600"
+            placeholder="merged.pdf"/>
+          <button id="mrRenameDownBtn" class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[#E8521A] hover:bg-[#D4471A] text-white transition-colors">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Save
+          </button>
+        </div>
+      </div>
+
+      <!-- CTA buttons -->
+      <div class="flex flex-wrap items-center justify-center gap-2.5 mb-6">
+        <button id="mrDownBtn2" class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold bg-[#E8521A] hover:bg-[#D4471A] text-white transition-all shadow-lg" style="box-shadow:0 4px 20px rgba(232,82,26,.35)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download PDF
+        </button>
+        <button id="mrNativeShareBtn" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-medium text-white transition-all hover:bg-white/10" style="border:1px solid #3a3a3a">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Share File
+        </button>
+        <button id="mrCopyUrlBtn" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-medium text-white transition-all hover:bg-white/10" style="border:1px solid #3a3a3a">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          Copy Link
+        </button>
+      </div>
+
+      <!-- Quick-action cards row -->
+      <div class="w-full max-w-[600px] grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
+        <button id="mrEditBtn2" class="group flex flex-col gap-2 p-4 rounded-xl text-left transition-all hover:scale-[1.02] active:scale-[.98]" style="background:#1e1e1e;border:1px solid #2d2d2d">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(232,82,26,.15)">
+            <svg class="w-4 h-4 text-[#E8521A]" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </div>
+          <div>
+            <p class="text-[12px] font-semibold text-white">Edit this PDF</p>
+            <p class="text-[11px] mt-0.5" style="color:#6b7280">Go back and re-arrange</p>
+          </div>
+          <div class="mt-auto pt-1 flex items-center gap-1 text-[11px] text-[#E8521A] font-medium">Go back <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </button>
+        <button id="mrSplitAfterBtn" class="group flex flex-col gap-2 p-4 rounded-xl text-left transition-all hover:scale-[1.02] active:scale-[.98]" style="background:#1e1e1e;border:1px solid #2d2d2d">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(26,86,232,.15)">
+            <svg class="w-4 h-4 text-[#4d82ff]" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+          </div>
+          <div>
+            <p class="text-[12px] font-semibold text-white">Split result</p>
+            <p class="text-[11px] mt-0.5" style="color:#6b7280">Split merged PDF into parts</p>
+          </div>
+          <div class="mt-auto pt-1 flex items-center gap-1 text-[11px] text-[#4d82ff] font-medium">Open tool <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </button>
+        <button id="mrNewBtn2" class="group flex flex-col gap-2 p-4 rounded-xl text-left transition-all hover:scale-[1.02] active:scale-[.98]" style="background:#1e1e1e;border:1px solid #2d2d2d">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(34,197,94,.15)">
+            <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+          <div>
+            <p class="text-[12px] font-semibold text-white">Merge new PDFs</p>
+            <p class="text-[11px] mt-0.5" style="color:#6b7280">Start a fresh session</p>
+          </div>
+          <div class="mt-auto pt-1 flex items-center gap-1 text-[11px] text-green-400 font-medium">Start fresh <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Preview section ── -->
+    <div class="px-4 pb-12 max-w-[720px] mx-auto">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="flex-1 h-px" style="background:#2a2a2a"></div>
+        <span class="text-[10px] font-semibold uppercase tracking-[.14em]" style="color:#555">Page Preview</span>
+        <div class="flex-1 h-px" style="background:#2a2a2a"></div>
+      </div>
+      <div id="mrPreviewBody" class="flex flex-col gap-3 items-center">
+        <div class="flex flex-col items-center gap-3 py-16" style="color:#555">
+          <div class="w-8 h-8 border-2 rounded-full spin" style="border-color:#333;border-top-color:#E8521A"></div>
+          <span class="text-sm">Rendering preview…</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end scroll -->
+</div>
+
+<!-- ══════════ PROGRESS OVERLAY ══════════ -->
+<div id="progressOv" class="fixed inset-0 z-[300] hidden items-center justify-center mbackdrop bg-black/40">
+  <div class="bg-white dark:bg-[#1C1B1A] border border-[#E2DDD8] dark:border-[#2E2C2A] rounded-2xl p-10 text-center shadow-2xl min-w-[260px] anim-pop-in">
+    <div class="w-12 h-12 rounded-xl mx-auto mb-4 flex items-center justify-center" style="background:linear-gradient(135deg,#E8521A,#F4982A)">
+      <svg class="w-6 h-6 fill-white" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>
+    </div>
+    <h3 id="progTitle" class="text-[15px] font-semibold mb-1"></h3>
+    <p id="progLabel" class="text-[12px] text-[#7D756E] dark:text-[#847D76] mb-5"></p>
+    <div class="h-1 bg-[#E2DDD8] dark:bg-[#2E2C2A] rounded-full overflow-hidden">
+      <div id="progBar" class="h-full bg-[#E8521A] rounded-full transition-all duration-300" style="width:0%"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ PREVIEW MODAL ══════════ -->
+<div id="prevModal" class="fixed inset-0 z-[400] hidden items-center justify-center mbackdrop bg-black/60 p-3 md:p-5">
+  <div class="relative bg-white dark:bg-[#1C1B1A] border border-[#E2DDD8] dark:border-[#2E2C2A] rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col anim-pop-in overflow-hidden">
+    <div class="flex items-center gap-3 px-4 py-3 border-b border-[#E2DDD8] dark:border-[#2E2C2A] shrink-0">
+      <svg class="w-4 h-4 text-[#E8521A] shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <h2 id="prevTitle" class="flex-1 text-[13px] font-semibold truncate"></h2>
+      <span id="prevInfo" class="text-[11px] font-mono text-[#7D756E] dark:text-[#847D76] shrink-0"></span>
+      <button id="prevClose" class="w-7 h-7 rounded-lg border border-[#E2DDD8] dark:border-[#2E2C2A] flex items-center justify-center text-[#7D756E] hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors text-sm">✕</button>
+    </div>
+    <div id="prevBody" class="flex-1 overflow-y-auto p-4 md:p-5 bg-[#F5F3EF] dark:bg-[#111010] flex flex-col gap-3 items-center">
+      <div class="flex flex-col items-center gap-3 py-12 text-[#7D756E]">
+        <div class="w-8 h-8 border-2 border-[#E2DDD8] border-t-[#E8521A] rounded-full spin"></div>
+        <span class="text-sm">Rendering…</span>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ─── PROGRESS OVERLAY ─── -->
-<div id="progressOverlay">
-  <div class="progress-box">
-    <div class="progress-icon">
-      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>
+<!-- ══════════ TOOL MODAL ══════════ -->
+<div id="toolModal" class="fixed inset-0 z-[400] hidden items-center justify-center mbackdrop bg-black/60 p-3 md:p-5">
+  <div class="relative bg-white dark:bg-[#1C1B1A] border border-[#E2DDD8] dark:border-[#2E2C2A] rounded-2xl shadow-2xl w-full max-w-xl max-h-[88vh] flex flex-col anim-pop-in overflow-hidden">
+    <div class="flex items-center gap-3 px-4 py-3 border-b border-[#E2DDD8] dark:border-[#2E2C2A] shrink-0">
+      <span id="tmIcon" class="text-lg shrink-0"></span>
+      <h2 id="tmTitle" class="flex-1 text-[14px] font-semibold"></h2>
+      <button id="tmClose" class="w-7 h-7 rounded-lg border border-[#E2DDD8] dark:border-[#2E2C2A] flex items-center justify-center text-[#7D756E] hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors text-sm">✕</button>
     </div>
-    <h3>Merging PDFs…</h3>
-    <p id="progressLabel">Preparing files</p>
-    <div class="progress-bar-wrap">
-      <div class="progress-bar" id="progressBar"></div>
+    <div id="tmBody" class="flex-1 overflow-y-auto p-5"></div>
+    <div class="flex gap-3 justify-end px-5 py-3.5 border-t border-[#E2DDD8] dark:border-[#2E2C2A] shrink-0">
+      <button id="tmCancel" class="px-4 py-2 rounded-lg border border-[#E2DDD8] dark:border-[#2E2C2A] text-[13px] font-medium hover:bg-[#F5F3EF] dark:hover:bg-[#111010] transition-colors">Cancel</button>
+      <button id="tmApply" class="px-4 py-2 rounded-lg bg-[#E8521A] hover:bg-[#D4471A] text-white text-[13px] font-medium transition-colors shadow-sm">Apply</button>
     </div>
   </div>
 </div>
 
-<!-- ─── RESTORE BANNER ─── -->
-<div id="restoreBanner">
-  <span>🗂️ You have a previous session</span>
-  <span class="muted" id="restoreTime"></span>
-  <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;" id="restoreBtn">Restore</button>
-  <button class="btn-icon btn" id="dismissRestore" title="Dismiss">✕</button>
+<!-- ══════════ SEARCH BAR ══════════ -->
+<div id="searchBar" class="hidden fixed top-[75px] left-1/2 -translate-x-1/2 z-[400] bg-white dark:bg-[#1C1B1A] border border-[#E2DDD8] dark:border-[#2E2C2A] rounded-xl shadow-2xl p-2 flex items-center gap-2 anim-fade-up">
+  <svg class="w-4 h-4 text-[#7D756E] dark:text-[#847D76] ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+  <input type="text" id="searchInput" placeholder="Search files & content..." class="bg-transparent outline-none text-[13px] w-64 text-[#1A1714] dark:text-[#F0EDE8] placeholder-[#7D756E] dark:placeholder-[#847D76]"/>
+  <span id="searchCount" class="text-[11px] text-[#7D756E] dark:text-[#847D76] ml-2 shrink-0"></span>
+  <button id="closeSearch" class="w-6 h-6 flex items-center justify-center rounded hover:bg-[#F5F3EF] dark:hover:bg-[#111010] text-[#7D756E] transition-colors ml-1" style="flex-shrink: 0">✕</button>
 </div>
 
-<!-- ─── TOAST ─── -->
-<div id="toast"><div class="toast-dot"></div><span id="toastMsg"></span></div>
+<!-- ══════════ TOAST ══════════ -->
+<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 translate-y-3 opacity-0 pointer-events-none z-[500] flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-medium shadow-xl bg-[#1A1714] dark:bg-[#F0EDE8] text-[#F5F3EF] dark:text-[#1A1714] whitespace-nowrap transition-all duration-200">
+  <div id="toastDot" class="w-1.5 h-1.5 rounded-full shrink-0"></div>
+  <span id="toastMsg"></span>
+</div>
 
 <script>
-// ── pdf.js setup ─────────────────────────────────────────────
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+// ── Setup ────────────────────────────────────────────────────────────────
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-// ── State ────────────────────────────────────────────────────
-const STORAGE_KEY = 'pdfstudio_state_v1';
-const EXPIRE_MS   = 36 * 60 * 60 * 1000; // 36 hours
+const STORAGE_KEY = 'pdfstudio_v4';
+const EXPIRE_MS   = 36 * 60 * 60 * 1000;
 
-let files     = [];   // { id, file, name, size, rotation }
-let nextId    = 1;
+let files      = [];   // { id, name, size, rotation, data:Uint8Array }
+let nextId     = 1;
 let nameEdited = false;
-let sortable  = null;
+let sortable   = null;
 
-// ── DOM refs ─────────────────────────────────────────────────
-const emptyState   = document.getElementById('emptyState');
-const workspace    = document.getElementById('workspace');
-const cardGrid     = document.getElementById('cardGrid');
-const mergeBtn     = document.getElementById('mergeBtn');
-const outputName   = document.getElementById('outputName');
-const fileCountEl  = document.getElementById('fileCount');
-const progressOv   = document.getElementById('progressOverlay');
-const progressBar  = document.getElementById('progressBar');
-const progressLbl  = document.getElementById('progressLabel');
-const toastEl      = document.getElementById('toast');
-const toastMsg     = document.getElementById('toastMsg');
-const restoreBanner = document.getElementById('restoreBanner');
-const themeToggle  = document.getElementById('themeToggle');
-const themeLabel   = document.getElementById('themeLabel');
+// DOM refs
+const emptyState  = document.getElementById('emptyState');
+const workspace   = document.getElementById('workspace');
+const cardGrid    = document.getElementById('cardGrid');
+const mergeBtn    = document.getElementById('mergeBtn');
+const outputName  = document.getElementById('outputName');
+const fileCountEl = document.getElementById('fileCount');
+const progressOv  = document.getElementById('progressOv');
+const progBar     = document.getElementById('progBar');
+const progLabel   = document.getElementById('progLabel');
+const progTitle   = document.getElementById('progTitle');
+const toast       = document.getElementById('toast');
+const toastDot    = document.getElementById('toastDot');
+const toastMsg    = document.getElementById('toastMsg');
+const dropOverlay = document.getElementById('dropOverlay');
 
-// ── Theme ────────────────────────────────────────────────────
-function initTheme() {
-  const saved = localStorage.getItem('pdfstudio_theme');
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const dark = saved ? saved === 'dark' : prefersDark;
-  setTheme(dark);
-}
+// ── Theme ─────────────────────────────────────────────────────────────────
+const themeBtn = document.getElementById('themeBtn');
+const sunIco   = document.getElementById('sunIco');
+const moonIco  = document.getElementById('moonIco');
 
 function setTheme(dark) {
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-  themeLabel.textContent = dark ? 'Dark' : 'Light';
+  sunIco.classList.toggle('hidden', dark);
+  moonIco.classList.toggle('hidden', !dark);
   localStorage.setItem('pdfstudio_theme', dark ? 'dark' : 'light');
 }
-
-themeToggle.addEventListener('click', () => {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  setTheme(!isDark);
-});
-
+function initTheme() {
+  const saved = localStorage.getItem('pdfstudio_theme');
+  const sys   = window.matchMedia('(prefers-color-scheme:dark)').matches;
+  setTheme(saved ? saved === 'dark' : sys);
+}
+themeBtn.addEventListener('click', () => setTheme(document.documentElement.getAttribute('data-theme') !== 'dark'));
 initTheme();
 
-// ── Toast ────────────────────────────────────────────────────
-let toastTimer = null;
-function showToast(msg, type = 'info', duration = 3000) {
+// ── Toast ──────────────────────────────────────────────────────────────────
+let toastT = null;
+function showToast(msg, type = 'info', dur = 3200) {
   toastMsg.textContent = msg;
-  toastEl.className = `show ${type}`;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toastEl.className = ''; }, duration);
+  toastDot.style.background = type === 'success' ? '#4CAF50' : type === 'error' ? '#E8521A' : '#1A56E8';
+  toast.classList.remove('opacity-0','translate-y-3','pointer-events-none');
+  toast.classList.add('opacity-100','translate-y-0');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => {
+    toast.classList.add('opacity-0','translate-y-3','pointer-events-none');
+    toast.classList.remove('opacity-100','translate-y-0');
+  }, dur);
 }
 
-// ── Output name ──────────────────────────────────────────────
-outputName.addEventListener('input', () => { nameEdited = true; });
+// ── Progress ───────────────────────────────────────────────────────────────
+function showProg(title, label) {
+  progTitle.textContent = title; progLabel.textContent = label; progBar.style.width = '0%';
+  progressOv.classList.remove('hidden'); progressOv.classList.add('flex');
+}
+function setProg(pct, label) {
+  progBar.style.width = pct + '%'; if (label) progLabel.textContent = label;
+}
+function hideProg() { progressOv.classList.add('hidden'); progressOv.classList.remove('flex'); }
 
+// ── Output name ────────────────────────────────────────────────────────────
+outputName.addEventListener('input', () => nameEdited = true);
 function suggestName(name) {
   if (nameEdited) return;
-  const base = name.replace(/\.pdf$/i, '');
-  outputName.value = `${base}-merged.pdf`;
+  outputName.value = name.replace(/\.pdf$/i, '') + '-merged.pdf';
 }
 
-// ── File processing ──────────────────────────────────────────
+// ── Extract PDF Text ───────────────────────────────────────────────────────
+async function extractPdfText(data) {
+  try {
+    const pdf = await pdfjsLib.getDocument({ data: data.slice() }).promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        fullText += textContent.items.map(s => s.str).join(' ') + ' ';
+    }
+    return fullText.toLowerCase();
+  } catch (e) { return ''; }
+}
+
+// ── Add files — stores binary data ─────────────────────────────────────────
 async function addFiles(fileList) {
-  const pdfs = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+  const pdfs = [...fileList].filter(f => f.name.toLowerCase().endsWith('.pdf'));
   if (!pdfs.length) { showToast('No PDF files found', 'error'); return; }
 
-  // Deduplicate: skip files whose exact name is already present
-  const existingNames = new Set(files.map(f => f.name));
+  const names = new Set(files.map(f => f.name));
   const fresh = [], skipped = [];
   for (const f of pdfs) {
-    if (existingNames.has(f.name)) { skipped.push(f.name); }
-    else { fresh.push(f); existingNames.add(f.name); }
+    if (names.has(f.name)) skipped.push(f.name);
+    else { fresh.push(f); names.add(f.name); }
   }
-
   if (skipped.length) showToast(`Skipped ${skipped.length} duplicate${skipped.length > 1 ? 's' : ''}`, 'info');
   if (!fresh.length) return;
 
-  if (files.length === 0 && fresh.length > 0) suggestName(fresh[0].name);
+  if (!files.length) suggestName(fresh[0].name);
 
   for (const f of fresh) {
-    const entry = { id: nextId++, file: f, name: f.name, size: f.size, rotation: 0 };
+    const data  = new Uint8Array(await f.arrayBuffer());
+    const entry = { id: nextId++, name: f.name, size: f.size, rotation: 0, data, textContent: '' };
     files.push(entry);
     const card = createCard(entry);
-    const addCardEl = cardGrid.querySelector('.add-card');
-    cardGrid.insertBefore(card, addCardEl);
-    renderPreview(entry, card);
+    cardGrid.insertBefore(card, cardGrid.querySelector('.add-card'));
+    renderThumb(entry, card);
+    extractPdfText(data).then(t => { 
+        entry.textContent = t;
+        if (typeof performSearch === 'function' && !document.getElementById('searchBar').classList.contains('hidden')) {
+            performSearch(document.getElementById('searchInput').value);
+        }
+    }).catch(e => console.error('Text extract error:', e));
   }
-
-  updateUI();
-  saveState();
+  updateUI(); saveState();
   showToast(`${fresh.length} file${fresh.length > 1 ? 's' : ''} added`, 'success');
 }
 
-// ── Card creation ────────────────────────────────────────────
+// ── Create card ────────────────────────────────────────────────────────────
+function mkBtn(cls, title, iconSvg) {
+  const b = document.createElement('button');
+  b.className = cls; b.title = title; b.innerHTML = iconSvg;
+  return b;
+}
+
 function createCard(entry) {
   const card = document.createElement('div');
-  card.className = 'pdf-card';
+  card.className = 'pdf-card relative bg-white dark:bg-[#242322] border border-[#E2DDD8] dark:border-[#2E2C2A] rounded-xl overflow-hidden cursor-grab anim-card-in select-none transition-all duration-150 hover:-translate-y-0.5 hover:shadow-xl hover:border-transparent group';
   card.dataset.id = entry.id;
 
-  card.innerHTML = `
-    <div class="card-preview">
-      <div class="card-loading">
-        <div class="spinner"></div>
-        <span>Loading…</span>
-      </div>
-    </div>
-    <div class="card-actions">
-      <button class="card-btn card-btn-preview" title="Preview PDF">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-      </button>
-      <button class="card-btn card-btn-copy" title="Duplicate">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-      </button>
-      <button class="card-btn card-btn-rotate" title="Rotate 90°">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
-      </button>
-      <button class="card-btn card-btn-delete" title="Remove">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="card-badge">#<span class="card-num"></span></div>
-    <div class="card-info">
-      <div class="card-name">${escHtml(entry.name)}</div>
-      <div class="card-meta">
-        <span>${formatSize(entry.size)}</span>
-        <span class="rotation-badge" style="display:none">
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
-          <span class="rot-label">0°</span>
-        </span>
-      </div>
+  // Preview area
+  const prev = document.createElement('div');
+  prev.className = 'card-preview relative w-full bg-[#F5F3EF] dark:bg-[#111010] flex items-center justify-center overflow-hidden';
+  prev.style.aspectRatio = '3/4';
+  prev.innerHTML = `<div class="flex flex-col items-center gap-1.5 text-[#7D756E] dark:text-[#847D76]"><div class="w-5 h-5 border-2 border-[#E2DDD8] border-t-[#E8521A] rounded-full spin"></div><span class="text-[10px]">Loading…</span></div>`;
+
+  // Badge
+  const badge = document.createElement('div');
+  badge.className = 'card-badge absolute top-2 left-2 bg-black/55 text-white text-[10px] font-mono px-1.5 py-px rounded opacity-0 transition-opacity backdrop-blur-sm';
+  badge.innerHTML = '#<span class="card-num"></span>';
+
+  // Actions row
+  const acts = document.createElement('div');
+  acts.className = 'card-actions absolute top-2 right-2 flex gap-1 opacity-0 -translate-y-1 transition-all duration-150';
+
+  const btnBase = 'w-6 h-6 rounded-md flex items-center justify-center backdrop-blur-sm transition-colors';
+  const btnBg   = 'rgba(255,255,255,0.92)';
+
+  const eyeBtn = mkBtn(`${btnBase} text-[#1A56E8] hover:bg-[#1A56E8] hover:text-white`, 'Preview',
+    `<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`);
+  const cpyBtn = mkBtn(`${btnBase} text-[#22a06b] hover:bg-[#22a06b] hover:text-white`, 'Duplicate',
+    `<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`);
+  const rotBtn = mkBtn(`${btnBase} text-[#1A1714] dark:text-[#F0EDE8] hover:bg-[#1A1714] dark:hover:bg-[#F0EDE8] hover:text-white dark:hover:text-[#1A1714]`, 'Rotate 90°',
+    `<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>`);
+  const delBtn = mkBtn(`${btnBase} text-[#E8521A] hover:bg-[#E8521A] hover:text-white`, 'Remove',
+    `<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`);
+
+  [eyeBtn, cpyBtn, rotBtn, delBtn].forEach(b => { b.style.background = btnBg; acts.appendChild(b); });
+
+  eyeBtn.addEventListener('click', e => { e.stopPropagation(); openPreview(entry); });
+  cpyBtn.addEventListener('click', e => { e.stopPropagation(); duplicateFile(entry.id); });
+  rotBtn.addEventListener('click', e => { e.stopPropagation(); rotateCard(entry.id, card); });
+  delBtn.addEventListener('click', e => { e.stopPropagation(); removeCard(entry.id, card); });
+
+  // Info
+  const info = document.createElement('div');
+  info.className = 'px-2.5 py-2 border-t border-[#E2DDD8] dark:border-[#2E2C2A] bg-white dark:bg-[#242322] relative rounded-b-xl z-20';
+  info.innerHTML = `
+    <div class="text-[11px] font-medium leading-snug card-name" style="word-break:break-word;overflow-wrap:anywhere">${escHtml(entry.name)}</div>
+    <div class="flex items-center gap-1.5 mt-0.5">
+      <span class="text-[10px] text-[#7D756E] dark:text-[#847D76]">${fmtSize(entry.size)}</span>
+      <span class="rot-badge hidden items-center gap-0.5 text-[10px] font-mono text-[#E8521A] bg-[#F5F3EF] dark:bg-[#111010] border border-[#E2DDD8] dark:border-[#2E2C2A] rounded px-1">
+        <svg class="w-2 h-2" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+        <span class="rot-lbl">0°</span>
+      </span>
     </div>`;
 
-  card.querySelector('.card-btn-delete').addEventListener('click', (e) => {
-    e.stopPropagation();
-    removeFile(entry.id, card);
-  });
+  card.append(prev, badge, acts, info);
 
-  card.querySelector('.card-btn-copy').addEventListener('click', (e) => {
-    e.stopPropagation();
-    duplicateFile(entry.id);
+  // Update button bg on theme change
+  const themeObs = new MutationObserver(() => {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    [eyeBtn, cpyBtn, rotBtn, delBtn].forEach(b => b.style.background = dark ? 'rgba(36,35,34,0.92)' : 'rgba(255,255,255,0.92)');
   });
-
-  card.querySelector('.card-btn-rotate').addEventListener('click', (e) => {
-    e.stopPropagation();
-    rotateFile(entry.id, card);
-  });
-
-  card.querySelector('.card-btn-preview').addEventListener('click', (e) => {
-    e.stopPropagation();
-    openPreview(entry);
-  });
+  themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  // Set immediately
+  if (document.documentElement.getAttribute('data-theme') === 'dark') {
+    [eyeBtn, cpyBtn, rotBtn, delBtn].forEach(b => b.style.background = 'rgba(36,35,34,0.92)');
+  }
 
   return card;
 }
 
-async function renderPreview(entry, card) {
+// ── Render thumbnail ───────────────────────────────────────────────────────
+async function renderThumb(entry, card) {
+  if (!entry.data) return;
   try {
-    const ab = await entry.file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
-    const page = await pdf.getPage(1);
-    const vp = page.getViewport({ scale: 1 });
-    const scale = 300 / Math.max(vp.width, vp.height);
-    const viewport = page.getViewport({ scale });
-
+    const pdf   = await pdfjsLib.getDocument({ data: entry.data.slice() }).promise;
+    const page  = await pdf.getPage(1);
+    const vp    = page.getViewport({ scale: 1 });
+    const scale = 220 / Math.max(vp.width, vp.height);
+    const vport = page.getViewport({ scale });
     const canvas = document.createElement('canvas');
-    canvas.width  = viewport.width;
-    canvas.height = viewport.height;
-
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-
-    const preview = card.querySelector('.card-preview');
-    preview.innerHTML = '';
+    canvas.width = vport.width; canvas.height = vport.height;
+    canvas.style.cssText = 'width:100%!important;height:100%!important;object-fit:contain;';
     canvas.style.transform = `rotate(${entry.rotation}deg)`;
-    preview.appendChild(canvas);
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vport }).promise;
+    const pv = card.querySelector('.card-preview');
+    pv.innerHTML = ''; pv.appendChild(canvas);
   } catch {
-    const preview = card.querySelector('.card-preview');
-    preview.innerHTML = `<div style="font-size:32px;opacity:.3">📄</div>`;
+    card.querySelector('.card-preview').innerHTML = `<div class="text-3xl opacity-20">📄</div>`;
   }
 }
 
-// ── Rotate ───────────────────────────────────────────────────
-function rotateFile(id, card) {
-  const entry = files.find(f => f.id === id);
-  if (!entry) return;
-  entry.rotation = (entry.rotation + 90) % 360;
-
-  const canvas = card.querySelector('canvas');
-  if (canvas) canvas.style.transform = `rotate(${entry.rotation}deg)`;
-
-  const badge = card.querySelector('.rotation-badge');
-  const rotLbl = card.querySelector('.rot-label');
-  if (entry.rotation === 0) {
-    badge.style.display = 'none';
-  } else {
-    badge.style.display = 'inline-flex';
-    rotLbl.textContent = entry.rotation + '°';
-  }
-
+// ── Rotate card ────────────────────────────────────────────────────────────
+function rotateCard(id, card) {
+  const e = files.find(f => f.id === id); if (!e) return;
+  e.rotation = (e.rotation + 90) % 360;
+  const cv = card.querySelector('canvas');
+  if (cv) cv.style.transform = `rotate(${e.rotation}deg)`;
+  const rb  = card.querySelector('.rot-badge');
+  const rl  = card.querySelector('.rot-lbl');
+  if (e.rotation === 0) { rb.classList.add('hidden'); rb.classList.remove('inline-flex'); }
+  else { rb.classList.remove('hidden'); rb.classList.add('inline-flex'); rl.textContent = e.rotation + '°'; }
   saveState();
 }
 
-// ── Duplicate ─────────────────────────────────────────────────
+// ── Remove card ────────────────────────────────────────────────────────────
+function removeCard(id, card) {
+  files = files.filter(f => f.id !== id);
+  Object.assign(card.style, { transition: 'opacity .18s, transform .18s', opacity: '0', transform: 'scale(.88)' });
+  setTimeout(() => card.remove(), 180);
+  updateUI(); saveState();
+}
+
+// ── Duplicate ──────────────────────────────────────────────────────────────
 function duplicateFile(id) {
   const src = files.find(f => f.id === id);
-  if (!src || !src.file) { showToast('Re-upload file to duplicate it', 'error'); return; }
-
-  const base = src.name.replace(/\.pdf$/i, '');
-  // Strip existing " copy" / " copy 2" suffix so we always add fresh
-  const clean = base.replace(/\s+copy(\s+\d+)?$/i, '');
-  // Count how many copies already exist
-  const count = files.filter(f => f.name.match(new RegExp(`^${escRegex(clean)}(\\s+copy(\\s+\\d+)?)?\\.pdf$`, 'i'))).length;
-  const copyName = count <= 1 ? `${clean} copy.pdf` : `${clean} copy ${count}.pdf`;
-
-  const newFile = new File([src.file], copyName, { type: 'application/pdf' });
-  const entry = { id: nextId++, file: newFile, name: copyName, size: newFile.size, rotation: src.rotation };
+  if (!src?.data) { showToast('No file data to duplicate', 'error'); return; }
+  const base  = src.name.replace(/\.pdf$/i, '').replace(/\s+copy(\s+\d+)?$/i, '');
+  const count = files.filter(f => f.name.match(new RegExp(`^${escRx(base)}(\\s+copy(\\s+\\d+)?)?\\.pdf$`, 'i'))).length;
+  const name  = count <= 1 ? `${base} copy.pdf` : `${base} copy ${count}.pdf`;
+  const entry = { id: nextId++, name, size: src.data.byteLength, rotation: src.rotation, data: src.data.slice(), textContent: src.textContent || '' };
   files.push(entry);
-
   const card = createCard(entry);
-  // Insert right after the source card
-  const srcCard = cardGrid.querySelector(`[data-id="${id}"]`);
-  if (srcCard && srcCard.nextSibling) {
-    cardGrid.insertBefore(card, srcCard.nextSibling);
-  } else {
-    const addCardEl = cardGrid.querySelector('.add-card');
-    cardGrid.insertBefore(card, addCardEl);
-  }
-  renderPreview(entry, card);
-  updateUI();
-  saveState();
-  showToast(`Duplicated as "${copyName}"`, 'success');
+  const src$ = cardGrid.querySelector(`[data-id="${id}"]`);
+  cardGrid.insertBefore(card, src$?.nextSibling || cardGrid.querySelector('.add-card'));
+  renderThumb(entry, card);
+  updateUI(); saveState();
+  showToast(`Duplicated as "${name}"`, 'success');
 }
 
-function escRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-
-
-function removeFile(id, card) {
-  files = files.filter(f => f.id !== id);
-  card.style.transition = 'opacity .2s, transform .2s';
-  card.style.opacity = '0';
-  card.style.transform = 'scale(0.88)';
-  setTimeout(() => card.remove(), 200);
-  updateUI();
-  saveState();
-}
-
-// ── Update UI ────────────────────────────────────────────────
+// ── Update UI ──────────────────────────────────────────────────────────────
 function updateUI() {
-  const hasFiles = files.length > 0;
-
-  emptyState.style.display  = hasFiles ? 'none' : 'flex';
-  workspace.style.display   = hasFiles ? 'block' : 'none';
-  mergeBtn.disabled          = !hasFiles;
-  fileCountEl.textContent    = `${files.length} file${files.length !== 1 ? 's' : ''}`;
-
-  // Renumber badges
-  const cards = cardGrid.querySelectorAll('.pdf-card');
-  cards.forEach((c, i) => {
-    const num = c.querySelector('.card-num');
-    if (num) num.textContent = i + 1;
+  const has = files.length > 0;
+  emptyState.classList.toggle('hidden', has);
+  emptyState.classList.toggle('flex', !has);
+  workspace.classList.toggle('hidden', !has);
+  mergeBtn.disabled = !has;
+  const n = files.length;
+  fileCountEl.innerHTML = `<span class="pf-italic text-[15px] text-[#1A1714] dark:text-[#F0EDE8]">${n}</span>&nbsp;file${n !== 1 ? 's' : ''} — drag to reorder`;
+  cardGrid.querySelectorAll('.pdf-card').forEach((c, i) => {
+    const num = c.querySelector('.card-num'); if (num) num.textContent = i + 1;
   });
-
-  // Init sortable once
-  if (hasFiles && !sortable) initSortable();
+  if (has && !sortable) initSortable();
 }
 
-// ── Sortable ─────────────────────────────────────────────────
+// ── Sortable ───────────────────────────────────────────────────────────────
 function initSortable() {
   sortable = Sortable.create(cardGrid, {
-    animation: 150,
-    ghostClass: 'sortable-ghost',
-    dragClass: 'sortable-drag',
-    handle: '.card-preview',
-    filter: '.add-card',
-    onStart: () => document.body.classList.add('is-dragging'),
-    onEnd: () => {
-      document.body.classList.remove('is-dragging');
-      syncOrder();
-      saveState();
+    animation: 350,
+    easing: "cubic-bezier(0.2, 1, 0.1, 1)",
+    ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
+    forceFallback: true, fallbackClass: 'sortable-fallback', fallbackTolerance: 3,
+    handle: '.card-preview', filter: '.add-card',
+    onStart: () => { 
+        document.body.style.cursor = 'grabbing';
+        cardGrid.classList.add('is-dragging');
+    },
+    onEnd:   () => { 
+        document.body.style.cursor = ''; 
+        cardGrid.classList.remove('is-dragging');
+        syncOrder(); saveState(); 
     }
   });
 }
-
 function syncOrder() {
-  const cards = [...cardGrid.querySelectorAll('.pdf-card')];
-  const newFiles = [];
-  cards.forEach(c => {
-    const id = parseInt(c.dataset.id);
-    const entry = files.find(f => f.id === id);
-    if (entry) newFiles.push(entry);
-  });
-  files = newFiles;
-  updateUI();
+  const next = [];
+  cardGrid.querySelectorAll('.pdf-card').forEach(c => { const e = files.find(f => f.id === +c.dataset.id); if (e) next.push(e); });
+  files = next; updateUI();
 }
 
-// ── Merge ────────────────────────────────────────────────────
-mergeBtn.addEventListener('click', async () => {
-  if (!files.length) return;
-
-  const orderedFiles = getOrderedFiles();
-
-  progressOv.classList.add('show');
-  setProgress(0, 'Initialising…');
-
-  try {
-    const { PDFDocument, degrees } = PDFLib;
-    const merged = await PDFDocument.create();
-
-    for (let i = 0; i < orderedFiles.length; i++) {
-      const entry = orderedFiles[i];
-      setProgress(Math.round((i / orderedFiles.length) * 85), `Adding: ${entry.name}`);
-
-      const ab = await entry.file.arrayBuffer();
-      const src = await PDFDocument.load(ab, { ignoreEncryption: true });
-      const pageIndices = src.getPageIndices();
-      const copiedPages = await merged.copyPages(src, pageIndices);
-
-      copiedPages.forEach(page => {
-        if (entry.rotation) {
-          const current = page.getRotation().angle;
-          page.setRotation(degrees(current + entry.rotation));
-        }
-        merged.addPage(page);
-      });
-    }
-
-    setProgress(95, 'Finalising…');
-    const bytes = await merged.save();
-    setProgress(100, 'Done!');
-
-    await new Promise(r => setTimeout(r, 400));
-
-    const blob = new Blob([bytes], { type: 'application/pdf' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = outputName.value || 'merged.pdf';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-
-    showToast('Merged successfully!', 'success');
-  } catch (err) {
-    console.error(err);
-    showToast('Merge failed — ' + (err.message || 'unknown error'), 'error');
-  } finally {
-    progressOv.classList.remove('show');
-  }
-});
-
-function setProgress(pct, label) {
-  progressBar.style.width = pct + '%';
-  progressLbl.textContent = label;
-}
-
-function getOrderedFiles() {
-  const cards = [...cardGrid.querySelectorAll('.pdf-card')];
-  return cards.map(c => files.find(f => f.id === parseInt(c.dataset.id))).filter(Boolean);
-}
-
-// ── LocalStorage persistence ─────────────────────────────────
-function saveState() {
-  const meta = files.map(f => ({
-    id: f.id, name: f.name, size: f.size, rotation: f.rotation
-  }));
-  const order = [...cardGrid.querySelectorAll('.pdf-card')]
-    .map(c => parseInt(c.dataset.id));
-
-  const state = {
-    meta, order,
-    outputName: outputName.value,
-    nameEdited,
-    timestamp: Date.now()
-  };
-
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
-}
-
-function loadSavedState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const state = JSON.parse(raw);
-    if (Date.now() - state.timestamp > EXPIRE_MS) {
-      localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-    return state;
-  } catch { return null; }
-}
-
-function clearSavedState() {
-  localStorage.removeItem(STORAGE_KEY);
-}
-
-// ── Restore banner ───────────────────────────────────────────
-function checkRestore() {
-  const state = loadSavedState();
-  if (!state || !state.meta || !state.meta.length) return;
-
-  const mins = Math.round((Date.now() - state.timestamp) / 60000);
-  const timeStr = mins < 60 ? `${mins}m ago` : `${Math.round(mins/60)}h ago`;
-
-  document.getElementById('restoreTime').textContent = `${state.meta.length} files · ${timeStr}`;
-  restoreBanner.classList.add('show');
-
-  document.getElementById('restoreBtn').addEventListener('click', () => {
-    restoreBanner.classList.remove('show');
-    restoreSession(state);
-  });
-
-  document.getElementById('dismissRestore').addEventListener('click', () => {
-    restoreBanner.classList.remove('show');
-    clearSavedState();
-  });
-}
-
-function restoreSession(state) {
-  // Restore output name
-  if (state.outputName) {
-    outputName.value = state.outputName;
-    nameEdited = state.nameEdited || false;
-  }
-
-  // We can't restore file content; prompt user to re-upload
-  showToast(`Restored ${state.meta.length} file names. Please re-upload the files.`, 'info', 5000);
-
-  // Show workspace with placeholder cards
-  state.meta.forEach(m => {
-    const entry = { id: m.id, file: null, name: m.name, size: m.size, rotation: m.rotation };
-    nextId = Math.max(nextId, m.id + 1);
-    files.push(entry);
-
-    const card = document.createElement('div');
-    card.className = 'pdf-card';
-    card.dataset.id = entry.id;
-    card.innerHTML = `
-      <div class="card-preview" style="align-items:center;justify-content:center;flex-direction:column;gap:6px;">
-        <div style="font-size:28px;opacity:.3">📄</div>
-        <span style="font-size:11px;color:var(--muted)">Re-upload needed</span>
-      </div>
-      <div class="card-actions">
-        <button class="card-btn card-btn-delete" title="Remove">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-      <div class="card-info">
-        <div class="card-name">${escHtml(m.name)}</div>
-        <div class="card-meta">${formatSize(m.size)}</div>
-      </div>`;
-    card.querySelector('.card-btn-delete').addEventListener('click', (e) => {
-      e.stopPropagation(); removeFile(entry.id, card);
-    });
-    cardGrid.appendChild(card);
-  });
-
-  appendAddCard();
-  updateUI();
-}
-
-// ── Add card (inside grid) ───────────────────────────────────
+// ── Add card ───────────────────────────────────────────────────────────────
 function appendAddCard() {
-  const existing = cardGrid.querySelector('.add-card');
-  if (existing) return;
-
+  if (cardGrid.querySelector('.add-card')) return;
   const el = document.createElement('label');
-  el.className = 'add-card';
-  el.innerHTML = `
-    <input type="file" accept=".pdf" multiple />
-    <div class="add-card-icon">+</div>
-    <span>Add PDF</span>`;
-  el.querySelector('input').addEventListener('change', e => {
-    addFiles(e.target.files);
-    e.target.value = '';
-  });
+  el.className = 'add-card relative border-2 border-dashed border-[#E2DDD8] dark:border-[#2E2C2A] rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-[#E8521A] hover:bg-[#E8521A]/5 transition-all text-[#7D756E] dark:text-[#847D76] min-h-[160px]';
+  el.innerHTML = `<input type="file" accept=".pdf" multiple class="finput"/><div class="w-10 h-10 rounded-xl bg-[#F5F3EF] dark:bg-[#111010] flex items-center justify-center text-xl font-light">+</div><span class="text-xs font-medium">Add PDF</span>`;
+  el.querySelector('input').addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
   cardGrid.appendChild(el);
 }
 
-// ── Event: file inputs ───────────────────────────────────────
-['addFilesInput','addFolderInput','dropInput'].forEach(id => {
-  document.getElementById(id)?.addEventListener('change', e => {
-    addFiles(e.target.files);
-    e.target.value = '';
-  });
+// ── Ordered files ──────────────────────────────────────────────────────────
+function orderedFiles() {
+  return [...cardGrid.querySelectorAll('.pdf-card')].map(c => files.find(f => f.id === +c.dataset.id)).filter(Boolean);
+}
+
+// ── Merge result state ────────────────────────────────────────────────────
+let mergedBytes    = null;   // Uint8Array of the merged PDF
+let preEditFiles   = null;   // snapshot of files[] before merge (for "Edit this PDF")
+let preEditName    = '';
+
+// ── Merge ──────────────────────────────────────────────────────────────────
+mergeBtn.addEventListener('click', async () => {
+  if (!files.length) return;
+  const list = orderedFiles();
+  showProg('Merging PDFs…', 'Initialising');
+  try {
+    const { PDFDocument, degrees } = PDFLib;
+    const out = await PDFDocument.create();
+    for (let i = 0; i < list.length; i++) {
+      const e = list[i];
+      setProg(Math.round((i / list.length) * 88), `Adding: ${e.name}`);
+      const src   = await PDFDocument.load(e.data.slice(), { ignoreEncryption: true });
+      const pages = await out.copyPages(src, src.getPageIndices());
+      pages.forEach(p => { if (e.rotation) p.setRotation(degrees(p.getRotation().angle + e.rotation)); out.addPage(p); });
+    }
+    setProg(96, 'Finalising…');
+    const bytes = await out.save();
+    setProg(100, 'Done!'); await sleep(300); hideProg();
+
+    // Store merged result and pre-edit snapshot
+    mergedBytes  = bytes;
+    preEditFiles = files.map(f => ({ ...f, data: f.data?.slice() }));
+    preEditName  = outputName.value || 'merged.pdf';
+
+    const totalPages = out.getPageCount();
+    const totalSize  = bytes.byteLength;
+
+    // ✅ Auto-download immediately on merge
+    dl(mergedBytes, preEditName.endsWith('.pdf') ? preEditName : preEditName + '.pdf', 'application/pdf');
+
+    openMergeResult(preEditName, totalPages, totalSize, list.length);
+  } catch (err) { hideProg(); showToast('Merge failed — ' + err.message, 'error'); }
 });
 
-// ── Drag & drop on empty state ───────────────────────────────
-const dropZone = document.getElementById('dropZone');
-['dragenter','dragover'].forEach(ev =>
-  dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); }));
-['dragleave','drop'].forEach(ev =>
-  dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragover'); }));
-dropZone.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+// ── Open merge result screen ───────────────────────────────────────────────
+async function openMergeResult(filename, pages, size, fileCount) {
+  const screen = document.getElementById('mergeResult');
 
-// Also support drop on workspace
-document.addEventListener('dragover', e => e.preventDefault());
-document.addEventListener('drop', e => {
+  // Set filename input
+  document.getElementById('mrFileName').value = filename;
+
+  // Stats line
+  document.getElementById('mrStats').textContent =
+    `${fileCount} file${fileCount !== 1 ? 's' : ''} · ${pages} page${pages !== 1 ? 's' : ''} · ${fmtSize(size)}`;
+
+  // Show screen
+  screen.style.animation = 'none';
+  screen.classList.remove('hidden');
+  requestAnimationFrame(() => {
+    screen.style.animation = 'resultSlideIn .4s cubic-bezier(.22,1,.36,1) both';
+  });
+  document.body.style.overflow = 'hidden';
+
+  // Confetti 🎉
+  spawnConfetti();
+
+  // Render preview
+  renderMergedPreview();
+}
+
+function closeMergeResult() {
+  const screen = document.getElementById('mergeResult');
+  screen.classList.add('hidden');
+  document.body.style.overflow = '';
+  document.getElementById('mrPreviewBody').innerHTML = '';
+}
+
+// ── Render merged preview ──────────────────────────────────────────────────
+async function renderMergedPreview() {
+  if (!mergedBytes) return;
+  const body = document.getElementById('mrPreviewBody');
+  body.innerHTML = `<div class="flex flex-col items-center gap-3 py-16 text-[#7D756E]"><div class="w-8 h-8 border-2 border-[#E2DDD8] border-t-[#E8521A] rounded-full spin"></div><span class="text-sm">Rendering preview…</span></div>`;
+
+  try {
+    const pdf   = await pdfjsLib.getDocument({ data: mergedBytes.slice() }).promise;
+    const total = pdf.numPages;
+    body.innerHTML = '';
+
+    for (let i = 1; i <= total; i++) {
+      const wrap = document.createElement('div');
+      wrap.className = 'relative w-full rounded-xl overflow-hidden';
+      wrap.style.cssText = 'background:#1e1e1e;border:1px solid #2d2d2d;box-shadow:0 4px 24px rgba(0,0,0,.4)';
+      const canvas = document.createElement('canvas');
+      canvas.style.cssText = 'width:100%;display:block';
+      const lbl = document.createElement('div');
+      lbl.className = 'absolute bottom-2 right-2 text-[10px] font-mono bg-black/35 text-white px-1.5 py-0.5 rounded-md backdrop-blur-sm';
+      lbl.textContent = `${i} / ${total}`;
+      wrap.append(canvas, lbl);
+      body.appendChild(wrap);
+
+      const pn = i;
+      (async () => {
+        try {
+          const page  = await pdf.getPage(pn);
+          const vp    = page.getViewport({ scale: 1 });
+          const dpr   = window.devicePixelRatio || 1;
+          const fit   = Math.min(680, window.innerWidth - 40);
+          const scale = (fit * dpr) / vp.width;
+          const vport = page.getViewport({ scale });
+          canvas.width  = vport.width;
+          canvas.height = vport.height;
+          canvas.style.width  = (vport.width  / dpr) + 'px';
+          canvas.style.height = (vport.height / dpr) + 'px';
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport: vport }).promise;
+        } catch {}
+      })();
+    }
+  } catch {
+    body.innerHTML = `<p class="text-[#E8521A] text-sm py-10 text-center">Could not render preview</p>`;
+  }
+}
+
+// ── Confetti ───────────────────────────────────────────────────────────────
+function spawnConfetti() {
+  const colors = ['#E8521A','#F4982A','#1A56E8','#22c55e','#a855f7','#ec4899','#eab308'];
+  for (let i = 0; i < 64; i++) {
+    const el = document.createElement('div');
+    const size = 6 + Math.random() * 8;
+    el.className = 'confetti-piece';
+    el.style.cssText = `
+      left:${Math.random()*100}%;
+      width:${size}px; height:${size}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      border-radius:${Math.random() > .5 ? '50%' : '2px'};
+      animation-duration:${1.8 + Math.random()*1.8}s;
+      animation-delay:${Math.random()*0.6}s;
+    `;
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+}
+
+// ── Result screen button wiring ───────────────────────────────────────────
+function wireMergeResultBtns() {
+  function doDownload() {
+    if (!mergedBytes) return;
+    const name = document.getElementById('mrFileName').value || 'merged.pdf';
+    dl(mergedBytes, name.endsWith('.pdf') ? name : name + '.pdf', 'application/pdf');
+    showToast('Downloaded!', 'success');
+  }
+
+  function doEdit() {
+    if (!preEditFiles) return;
+    closeMergeResult();
+    files   = preEditFiles.map(f => ({ ...f, data: f.data?.slice() }));
+    nextId  = Math.max(...files.map(f => f.id)) + 1;
+    outputName.value = preEditName; nameEdited = false;
+    cardGrid.innerHTML = '';
+    files.forEach(entry => { const card = createCard(entry); cardGrid.appendChild(card); renderThumb(entry, card); });
+    appendAddCard(); updateUI();
+    showToast('Restored pre-merge state', 'success');
+  }
+
+  function doNew() {
+    closeMergeResult();
+    files = []; nextId = 1; nameEdited = false; mergedBytes = null; sortable = null;
+    cardGrid.innerHTML = ''; appendAddCard();
+    outputName.value = ''; updateUI();
+    localStorage.removeItem(STORAGE_KEY);
+    showToast('Ready to merge new files', 'info');
+  }
+
+  function doShare() {
+    const url = window.location.href.split('?')[0];
+    if (navigator.share) {
+      navigator.share({ title: 'PDF Studio', text: 'Free browser-based PDF merge & edit tool', url }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url).then(() => showToast('Tool URL copied!', 'success')).catch(() => showToast('Copy failed', 'error'));
+    }
+  }
+
+  async function doNativeShare() {
+    if (!mergedBytes) return;
+    const name  = document.getElementById('mrFileName').value || 'merged.pdf';
+    const fname = name.endsWith('.pdf') ? name : name + '.pdf';
+    if (navigator.share && navigator.canShare) {
+      try {
+        const file = new File([mergedBytes], fname, { type: 'application/pdf' });
+        if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: fname }); return; }
+      } catch {}
+    }
+    doDownload();
+  }
+
+  function doSplitAfter() {
+    if (!mergedBytes) return;
+    const name  = document.getElementById('mrFileName').value || 'merged.pdf';
+    const entry = { id: nextId++, name, size: mergedBytes.byteLength, rotation: 0, data: mergedBytes.slice() };
+    files.push(entry);
+    closeMergeResult();
+    cardGrid.innerHTML = '';
+    files.forEach(en => { const c = createCard(en); cardGrid.appendChild(c); renderThumb(en, c); });
+    appendAddCard(); updateUI(); doTool('split');
+  }
+
+  // Wire every button — desktop navbar
+  const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+
+  bind('mrDownBtn',        doDownload);
+  bind('mrEditBtn',        doEdit);
+  bind('mrNewBtn',         doNew);
+  bind('mrShareBtn',       doShare);
+
+  // Mobile drawer
+  bind('mrDownBtnM',       doDownload);
+  bind('mrEditBtnM',       doEdit);
+  bind('mrNewBtnM',        doNew);
+  bind('mrShareBtnM',      doShare);
+  bind('mrMobileMenuBtn',  () => document.getElementById('mrMobileMenu').classList.toggle('hidden'));
+
+  // Hero area big buttons
+  bind('mrDownBtn2',       doDownload);
+  bind('mrEditBtn2',       doEdit);
+  bind('mrNewBtn2',        doNew);
+  bind('mrNativeShareBtn', doNativeShare);
+  bind('mrSplitAfterBtn',  doSplitAfter);
+
+  // Filename save button + Enter key
+  bind('mrRenameDownBtn',  doDownload);
+  document.getElementById('mrFileName')?.addEventListener('keydown', e => { if (e.key === 'Enter') doDownload(); });
+
+  // Copy link
+  bind('mrCopyUrlBtn', () => {
+    navigator.clipboard.writeText(window.location.href.split('?')[0])
+      .then(() => showToast('Tool link copied!', 'success'))
+      .catch(() => showToast('Copy failed', 'error'));
+  });
+}
+
+// Wire once on load
+wireMergeResultBtns();
+
+
+// ── Preview modal ──────────────────────────────────────────────────────────
+const prevModal = document.getElementById('prevModal');
+const prevBody  = document.getElementById('prevBody');
+const prevTitle = document.getElementById('prevTitle');
+const prevInfo  = document.getElementById('prevInfo');
+const prevClose = document.getElementById('prevClose');
+
+async function openPreview(entry) {
+  if (!entry.data) { showToast('No file data available', 'error'); return; }
+  prevTitle.textContent = entry.name; prevInfo.textContent = '';
+  prevBody.innerHTML = `<div class="flex flex-col items-center gap-3 py-12 text-[#7D756E]"><div class="w-8 h-8 border-2 border-[#E2DDD8] border-t-[#E8521A] rounded-full spin"></div><span class="text-sm">Rendering…</span></div>`;
+  prevModal.classList.remove('hidden'); prevModal.classList.add('flex');
+  document.body.style.overflow = 'hidden';
+  try {
+    const pdf   = await pdfjsLib.getDocument({ data: entry.data.slice() }).promise;
+    const total = pdf.numPages;
+    prevInfo.textContent = `${total} page${total !== 1 ? 's' : ''}`;
+    prevBody.innerHTML = '';
+    for (let i = 1; i <= total; i++) {
+      const wrap   = document.createElement('div');
+      wrap.className = 'relative w-full max-w-[640px] bg-white dark:bg-[#1C1B1A] rounded-lg shadow-md overflow-hidden';
+      const canvas = document.createElement('canvas');
+      canvas.style.cssText = 'width:100%;display:block';
+      const lbl = document.createElement('div');
+      lbl.className = 'absolute bottom-2 right-2 text-[10px] font-mono bg-black/30 text-white px-1.5 py-0.5 rounded backdrop-blur-sm';
+      lbl.textContent = `${i} / ${total}`;
+      wrap.append(canvas, lbl);
+      prevBody.appendChild(wrap);
+      const pn = i;
+      (async () => {
+        try {
+          const page  = await pdf.getPage(pn);
+          const vp    = page.getViewport({ scale: 1 });
+          const dpr   = window.devicePixelRatio || 1;
+          const fit   = (Math.min(620, window.innerWidth - 64));
+          const scale = (fit * dpr) / vp.width;
+          const vport = page.getViewport({ scale, rotation: entry.rotation });
+          canvas.width  = vport.width;
+          canvas.height = vport.height;
+          canvas.style.width  = (vport.width  / dpr) + 'px';
+          canvas.style.height = (vport.height / dpr) + 'px';
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport: vport }).promise;
+        } catch {}
+      })();
+    }
+  } catch { prevBody.innerHTML = `<p class="text-sm text-[#E8521A] py-10 text-center">Failed to load PDF</p>`; }
+}
+function closePreview() {
+  prevModal.classList.add('hidden'); prevModal.classList.remove('flex');
+  document.body.style.overflow = ''; prevBody.innerHTML = '';
+}
+prevClose.addEventListener('click', closePreview);
+prevModal.addEventListener('click', e => { if (e.target === prevModal) closePreview(); });
+
+// ── Dropdown ───────────────────────────────────────────────────────────────
+const ddBtn  = document.getElementById('ddBtn');
+const ddMenu = document.getElementById('ddMenu');
+const ddChev = document.getElementById('ddChev');
+ddBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  const o = ddMenu.classList.contains('open');
+  ddMenu.classList.toggle('open', !o); ddMenu.classList.toggle('hidden', o);
+  ddChev.style.transform = o ? '' : 'rotate(180deg)';
+});
+document.addEventListener('click', () => { ddMenu.classList.remove('open'); ddMenu.classList.add('hidden'); ddChev.style.transform = ''; });
+
+// ── Tool modal ─────────────────────────────────────────────────────────────
+const toolModal = document.getElementById('toolModal');
+const tmTitle   = document.getElementById('tmTitle');
+const tmIcon    = document.getElementById('tmIcon');
+const tmBody    = document.getElementById('tmBody');
+const tmClose   = document.getElementById('tmClose');
+const tmCancel  = document.getElementById('tmCancel');
+const tmApply   = document.getElementById('tmApply');
+let activeTool  = null;
+
+function openTool(title, icon, html, fn) {
+  tmTitle.textContent = title; tmIcon.textContent = icon; tmBody.innerHTML = html; activeTool = fn;
+  toolModal.classList.remove('hidden'); toolModal.classList.add('flex');
+  document.body.style.overflow = 'hidden';
+}
+function closeTool() {
+  toolModal.classList.add('hidden'); toolModal.classList.remove('flex');
+  document.body.style.overflow = ''; activeTool = null;
+}
+tmClose.addEventListener('click', closeTool); tmCancel.addEventListener('click', closeTool);
+toolModal.addEventListener('click', e => { if (e.target === toolModal) closeTool(); });
+tmApply.addEventListener('click', async () => { if (activeTool) await activeTool(); });
+
+function needFile() { if (!files.length) { showToast('Add a PDF first', 'error'); return false; } return true; }
+
+// File select HTML helper
+function fileSelHTML(id) { return `<div><label class="block text-[12px] font-medium text-[#7D756E] dark:text-[#847D76] mb-1.5">Select PDF</label><select id="${id}" class="w-full bg-[#F5F3EF] dark:bg-[#111010] border border-[#E2DDD8] dark:border-[#2E2C2A] rounded-lg px-3 py-2 text-[13px] outline-none">${files.map(f=>`<option value="${f.id}">${escHtml(f.name)}</option>`).join('')}</select></div>`; }
+
+// Input field HTML helper
+function inputHTML(id, label, type, placeholder, value = '') {
+  return `<div><label class="block text-[12px] font-medium text-[#7D756E] dark:text-[#847D76] mb-1.5">${label}</label><input id="${id}" type="${type}" placeholder="${escHtml(placeholder)}" value="${escHtml(value)}" class="w-full bg-[#F5F3EF] dark:bg-[#111010] border border-[#E2DDD8] dark:border-[#2E2C2A] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[#E8521A] transition-colors"/></div>`;
+}
+
+// Tools
+document.querySelectorAll('.ti').forEach(btn => {
+  btn.addEventListener('click', () => { ddMenu.classList.remove('open'); ddMenu.classList.add('hidden'); ddChev.style.transform = ''; doTool(btn.dataset.tool); });
+});
+
+function doTool(tool) {
+  switch (tool) {
+    case 'merge': mergeBtn.click(); break;
+
+    case 'split':
+      if (!needFile()) return;
+      openTool('Split PDF', '✂️', `<div class="flex flex-col gap-4">${fileSelHTML('sp-file')}<div><label class="block text-[12px] font-medium text-[#7D756E] dark:text-[#847D76] mb-2">Split method</label><div class="flex flex-col gap-2 text-[13px]"><label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="spMode" value="every" checked class="accent-[#E8521A]"/>Every page (one file per page)</label><label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="spMode" value="range" class="accent-[#E8521A]"/>Custom range<input id="spRange" type="text" placeholder="e.g. 1-3, 5, 7-9" class="ml-2 flex-1 bg-[#F5F3EF] dark:bg-[#111010] border border-[#E2DDD8] dark:border-[#2E2C2A] rounded-lg px-2 py-1 text-[12px] font-mono outline-none"/></label></div></div></div>`,
+      async () => {
+        const id   = +document.getElementById('sp-file').value;
+        const mode = document.querySelector('input[name="spMode"]:checked').value;
+        const e    = files.find(f => f.id === id); if (!e) return;
+        closeTool(); showProg('Splitting…', 'Loading');
+        try {
+          const { PDFDocument } = PDFLib;
+          const src   = await PDFDocument.load(e.data.slice(), { ignoreEncryption: true });
+          const total = src.getPageCount();
+          let ranges  = [];
+          if (mode === 'every') { for (let i = 0; i < total; i++) ranges.push([i]); }
+          else {
+            document.getElementById('spRange').value.split(',').forEach(r => {
+              r = r.trim();
+              const m = r.match(/^(\d+)-(\d+)$/);
+              if (m) { const a=[]; for (let i=+m[1]-1;i<+m[2];i++) a.push(i); ranges.push(a); }
+              else if (/^\d+$/.test(r)) ranges.push([+r-1]);
+            });
+          }
+          if (!ranges.length) { hideProg(); showToast('Invalid range', 'error'); return; }
+          for (let i = 0; i < ranges.length; i++) {
+            setProg(Math.round((i/ranges.length)*90), `Part ${i+1}/${ranges.length}`);
+            const part = await PDFDocument.create();
+            (await part.copyPages(src, ranges[i])).forEach(p => part.addPage(p));
+            dl(await part.save(), `${e.name.replace(/\.pdf$/i,'')}-part${i+1}.pdf`, 'application/pdf');
+            await sleep(60);
+          }
+          setProg(100,'Done!'); await sleep(350); hideProg();
+          showToast(`Split into ${ranges.length} file${ranges.length>1?'s':''}`, 'success');
+        } catch(err){ hideProg(); showToast('Split failed: '+err.message,'error'); }
+      }); break;
+
+    case 'remove-pages':
+      if (!needFile()) return;
+      openTool('Remove Pages', '🗑️', `<div class="flex flex-col gap-4">${fileSelHTML('rp-file')}${inputHTML('rp-pages','Pages to remove (e.g. 1, 3, 5-7)','text','1, 3, 5-7')}<p class="text-[11px] text-[#7D756E] dark:text-[#847D76]">Remaining pages saved as a new file.</p></div>`,
+      async () => {
+        const id = +document.getElementById('rp-file').value;
+        const raw = document.getElementById('rp-pages').value;
+        const e = files.find(f=>f.id===id); if (!e||!raw.trim()) { showToast('Fill all fields','error'); return; }
+        closeTool(); showProg('Removing pages…','Processing');
+        try {
+          const { PDFDocument } = PDFLib;
+          const src = await PDFDocument.load(e.data.slice(),{ignoreEncryption:true});
+          const tot = src.getPageCount(); const rm = new Set();
+          raw.split(',').forEach(r=>{ r=r.trim(); const m=r.match(/^(\d+)-(\d+)$/); if(m){for(let i=+m[1]-1;i<+m[2];i++)rm.add(i);}else if(/^\d+$/.test(r))rm.add(+r-1); });
+          const keep=[...[...Array(tot).keys()]].filter(i=>!rm.has(i));
+          if (!keep.length){ hideProg(); showToast('Cannot remove all pages','error'); return; }
+          const out = await PDFDocument.create();
+          (await out.copyPages(src,keep)).forEach(p=>out.addPage(p));
+          setProg(100,'Done!'); await sleep(350); hideProg();
+          dl(await out.save(), e.name.replace(/\.pdf$/i,'')+'-edited.pdf','application/pdf');
+          showToast(`Removed ${rm.size} page${rm.size>1?'s':''}`, 'success');
+        } catch(err){ hideProg(); showToast('Failed: '+err.message,'error'); }
+      }); break;
+
+    case 'rotate-all':
+      if (!needFile()) return;
+      openTool('Rotate All Pages', '🔄', `<div class="flex flex-col gap-4">${fileSelHTML('ra-file')}<div><label class="block text-[12px] font-medium text-[#7D756E] dark:text-[#847D76] mb-2">Rotation</label><div class="grid grid-cols-4 gap-2">${[[90,'↻','90°'],[180,'↕','180°'],[270,'↺','270°'],[-90,'↺','-90°']].map(([v,ic,lbl],i)=>`<label class="flex flex-col items-center gap-1 p-3 rounded-xl border border-[#E2DDD8] dark:border-[#2E2C2A] cursor-pointer hover:border-[#E8521A] transition-colors has-[:checked]:border-[#E8521A] has-[:checked]:bg-[#E8521A]/5"><input type="radio" name="ra-ang" value="${v}" ${i===0?'checked':''} class="sr-only"/><span class="text-xl">${ic}</span><span class="text-[11px] font-mono">${lbl}</span></label>`).join('')}</div></div></div>`,
+      async () => {
+        const id = +document.getElementById('ra-file').value;
+        const ang = +document.querySelector('input[name="ra-ang"]:checked').value;
+        const e = files.find(f=>f.id===id); if (!e) return;
+        closeTool(); showProg('Rotating…','Processing');
+        try {
+          const { PDFDocument, degrees } = PDFLib;
+          const src = await PDFDocument.load(e.data.slice(),{ignoreEncryption:true});
+          src.getPages().forEach(p=>p.setRotation(degrees(p.getRotation().angle+ang)));
+          setProg(100,'Done!'); await sleep(350); hideProg();
+          dl(await src.save(), e.name.replace(/\.pdf$/i,'')+`-rotated${ang}.pdf`,'application/pdf');
+          showToast('Pages rotated','success');
+        } catch(err){ hideProg(); showToast('Failed: '+err.message,'error'); }
+      }); break;
+
+    case 'compress':
+      if (!needFile()) return;
+      openTool('Compress PDF', '⚡', `<div class="flex flex-col gap-4">${fileSelHTML('cm-file')}<div class="p-4 bg-[#F5F3EF] dark:bg-[#111010] rounded-xl border border-[#E2DDD8] dark:border-[#2E2C2A] text-[12px] text-[#7D756E] dark:text-[#847D76] leading-relaxed">Re-serialises the PDF using object streams which can reduce file size. For heavy image compression a server-side tool is recommended.</div></div>`,
+      async () => {
+        const id = +document.getElementById('cm-file').value;
+        const e = files.find(f=>f.id===id); if (!e) return;
+        closeTool(); showProg('Compressing…','Re-serialising');
+        try {
+          const { PDFDocument } = PDFLib;
+          const src = await PDFDocument.load(e.data.slice(),{ignoreEncryption:true});
+          const bytes = await src.save({useObjectStreams:true});
+          const ratio = ((1-bytes.length/e.size)*100).toFixed(1);
+          setProg(100,'Done!'); await sleep(350); hideProg();
+          dl(bytes, e.name.replace(/\.pdf$/i,'')+'-compressed.pdf','application/pdf');
+          showToast(ratio>0?`Saved ~${ratio}% file size`:'File re-saved','success');
+        } catch(err){ hideProg(); showToast('Failed: '+err.message,'error'); }
+      }); break;
+
+    case 'watermark':
+      if (!needFile()) return;
+      openTool('Add Watermark', '💧', `<div class="flex flex-col gap-4">${fileSelHTML('wm-file')}${inputHTML('wm-text','Watermark text','text','e.g. CONFIDENTIAL','CONFIDENTIAL')}<div class="grid grid-cols-2 gap-3">${inputHTML('wm-opacity','Opacity (0–1)','number','0.15','0.15')}${inputHTML('wm-size','Font size (pt)','number','48','48')}</div></div>`,
+      async () => {
+        const id  = +document.getElementById('wm-file').value;
+        const txt = document.getElementById('wm-text').value || 'WATERMARK';
+        const op  = parseFloat(document.getElementById('wm-opacity').value) || 0.15;
+        const sz  = parseInt(document.getElementById('wm-size').value) || 48;
+        const e   = files.find(f=>f.id===id); if (!e) return;
+        closeTool(); showProg('Adding watermark…','Processing pages');
+        try {
+          const { PDFDocument, rgb, degrees, StandardFonts } = PDFLib;
+          const src  = await PDFDocument.load(e.data.slice(),{ignoreEncryption:true});
+          const font = await src.embedFont(StandardFonts.HelveticaBold);
+          src.getPages().forEach(p => {
+            const { width, height } = p.getSize();
+            p.drawText(txt, { x: width/2-(font.widthOfTextAtSize(txt,sz)/2), y: height/2, size: sz, font, color: rgb(.5,.5,.5), opacity: op, rotate: degrees(45) });
+          });
+          setProg(100,'Done!'); await sleep(350); hideProg();
+          dl(await src.save(), e.name.replace(/\.pdf$/i,'')+'-watermarked.pdf','application/pdf');
+          showToast('Watermark added','success');
+        } catch(err){ hideProg(); showToast('Failed: '+err.message,'error'); }
+      }); break;
+
+    case 'lock':
+      if (!needFile()) return;
+      openTool('Lock PDF', '🔒', `<div class="flex flex-col gap-4">${fileSelHTML('lk-file')}${inputHTML('lk-p1','Password','password','Enter password','')}${inputHTML('lk-p2','Confirm password','password','Repeat password','')}<div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl text-[11px] text-amber-700 dark:text-amber-400">⚠️ pdf-lib does not support AES encryption. This embeds password as keyword metadata. For true encryption use a server-side tool.</div></div>`,
+      async () => {
+        const p1 = document.getElementById('lk-p1').value;
+        const p2 = document.getElementById('lk-p2').value;
+        if (!p1) { showToast('Enter a password','error'); return; }
+        if (p1 !== p2) { showToast('Passwords do not match','error'); return; }
+        const id = +document.getElementById('lk-file').value;
+        const e = files.find(f=>f.id===id); if (!e) return;
+        closeTool(); showProg('Locking PDF…','Processing');
+        try {
+          const { PDFDocument } = PDFLib;
+          const src = await PDFDocument.load(e.data.slice(),{ignoreEncryption:true});
+          src.setKeywords([`locked:${btoa(p1)}`]);
+          setProg(100,'Done!'); await sleep(350); hideProg();
+          dl(await src.save(), e.name.replace(/\.pdf$/i,'')+'-locked.pdf','application/pdf');
+          showToast('PDF locked (metadata)','success');
+        } catch(err){ hideProg(); showToast('Failed: '+err.message,'error'); }
+      }); break;
+
+    case 'unlock':
+      if (!needFile()) return;
+      openTool('Unlock PDF', '🔓', `<div class="flex flex-col gap-4">${fileSelHTML('ul-file')}<p class="text-[12px] text-[#7D756E] dark:text-[#847D76] p-3.5 bg-[#F5F3EF] dark:bg-[#111010] border border-[#E2DDD8] dark:border-[#2E2C2A] rounded-xl leading-relaxed">Attempts to re-save the PDF removing copy/print restrictions. Works for owner-password PDFs, not user-password encrypted files.</p></div>`,
+      async () => {
+        const id = +document.getElementById('ul-file').value;
+        const e = files.find(f=>f.id===id); if (!e) return;
+        closeTool(); showProg('Unlocking…','Removing restrictions');
+        try {
+          const { PDFDocument } = PDFLib;
+          const src = await PDFDocument.load(e.data.slice(),{ignoreEncryption:true});
+          setProg(100,'Done!'); await sleep(350); hideProg();
+          dl(await src.save(), e.name.replace(/\.pdf$/i,'')+'-unlocked.pdf','application/pdf');
+          showToast('PDF unlocked','success');
+        } catch(err){ hideProg(); showToast('Could not unlock: '+err.message,'error'); }
+      }); break;
+  }
+}
+
+// ── localStorage with base64 data ──────────────────────────────────────────
+function saveState() {
+  try {
+    const meta = files.map(f => ({ id:f.id, name:f.name, size:f.size, rotation:f.rotation, data: u8ToB64(f.data) }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ meta, out: outputName.value, ne: nameEdited, ts: Date.now() }));
+  } catch {
+    try {
+      const meta = files.map(f => ({ id:f.id, name:f.name, size:f.size, rotation:f.rotation }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ meta, out: outputName.value, ne: nameEdited, ts: Date.now(), nd: true }));
+    } catch {}
+  }
+}
+
+function u8ToB64(u8) {
+  if (!u8) return null;
+  let bin = ''; for (let i = 0; i < u8.byteLength; i++) bin += String.fromCharCode(u8[i]);
+  return btoa(bin);
+}
+
+function b64ToU8(b64) {
+  const bin = atob(b64); const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return u8;
+}
+
+function checkRestore() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return;
+    const s   = JSON.parse(raw);
+    if (Date.now() - s.ts > EXPIRE_MS) { localStorage.removeItem(STORAGE_KEY); return; }
+    if (!s.meta?.length) return;
+
+    if (s.out) { outputName.value = s.out; nameEdited = s.ne || false; }
+
+    let restored = 0;
+    s.meta.forEach(m => {
+      let data = null;
+      if (m.data && !s.nd) { try { data = b64ToU8(m.data); } catch {} }
+      const entry = { id: m.id, name: m.name, size: m.size, rotation: m.rotation, data, textContent: '' };
+      nextId = Math.max(nextId, m.id + 1);
+      files.push(entry);
+      const card = createCard(entry);
+      cardGrid.insertBefore(card, cardGrid.querySelector('.add-card'));
+      if (data) { 
+        renderThumb(entry, card); restored++; 
+        extractPdfText(data).then(t => {
+            entry.textContent = t;
+            if (typeof performSearch === 'function' && !document.getElementById('searchBar').classList.contains('hidden')) {
+                performSearch(document.getElementById('searchInput').value);
+            }
+        }).catch(e => console.error(e));
+      } else { card.querySelector('.card-preview').innerHTML = `<div class="flex flex-col items-center gap-1 text-[#7D756E]"><div class="text-2xl opacity-20">📄</div><span class="text-[10px]">Re-upload</span></div>`; }
+    });
+    updateUI();
+    if (restored === s.meta.length) showToast(`Session restored — ${restored} files`, 'success', 4500);
+    else if (restored > 0) showToast(`Partially restored (${restored}/${s.meta.length}) — re-upload missing`, 'info', 5000);
+    else showToast(`Restored ${s.meta.length} files — please re-upload`, 'info', 5000);
+  } catch {}
+}
+
+// ── Global drag/drop ───────────────────────────────────────────────────────
+let dc = 0;
+document.addEventListener('dragenter', e => {
   e.preventDefault();
+  if (e.dataTransfer?.types?.includes('Files')) { dc++; dropOverlay.classList.add('active'); }
+});
+document.addEventListener('dragleave', () => { if (--dc <= 0) { dc = 0; dropOverlay.classList.remove('active'); } });
+document.addEventListener('dragover',  e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault(); dc = 0; dropOverlay.classList.remove('active');
   if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
 });
 
-// ── PDF Preview Modal ────────────────────────────────────────
-const previewModal   = document.getElementById('previewModal');
-const previewBody    = document.getElementById('previewBody');
-const previewTitle   = document.getElementById('previewTitle');
-const previewPageInfo = document.getElementById('previewPageInfo');
-const prevPageBtn    = document.getElementById('prevPageBtn');
-const nextPageBtn    = document.getElementById('nextPageBtn');
-const previewClose   = document.getElementById('previewClose');
-const previewBackdrop = document.getElementById('previewBackdrop');
+// ── File inputs ────────────────────────────────────────────────────────────
+['addFilesInput','addFolderInput','dropInput'].forEach(id => {
+  document.getElementById(id)?.addEventListener('change', e => { addFiles(e.target.files); e.target.value=''; });
+});
 
-let previewPdfDoc  = null;
-let previewCurrent = 1;
-let previewTotal   = 1;
-let previewRotation = 0;
+// ── Clear all ──────────────────────────────────────────────────────────────
+document.getElementById('clearAllBtn').addEventListener('click', () => {
+  files=[]; nextId=1; nameEdited=false; sortable=null;
+  cardGrid.innerHTML=''; appendAddCard(); updateUI();
+  localStorage.removeItem(STORAGE_KEY); showToast('Cleared','info');
+});
 
-async function openPreview(entry) {
-  if (!entry.file) { showToast('Re-upload the file to preview it', 'error'); return; }
+// ── Escape key ─────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => { if (e.key==='Escape') { closePreview(); closeTool(); } });
 
-  previewTitle.textContent = entry.name;
-  previewRotation = entry.rotation;
-  previewBody.innerHTML = `<div class="preview-loading"><div class="spinner" style="width:32px;height:32px;border-width:3px;"></div><span>Rendering pages…</span></div>`;
-  previewModal.classList.add('show');
-  document.body.style.overflow = 'hidden';
+// ── Helpers ────────────────────────────────────────────────────────────────
+function fmtSize(b) { return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB'; }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escRx(s)   { return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+function sleep(ms)  { return new Promise(r=>setTimeout(r,ms)); }
+function dl(bytes, name, mime) {
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([bytes],{type:mime})),download:name});
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(a.href),8000);
+}
 
-  try {
-    const ab = await entry.file.arrayBuffer();
-    previewPdfDoc = await pdfjsLib.getDocument({ data: ab }).promise;
-    previewTotal = previewPdfDoc.numPages;
-    previewCurrent = 1;
-    await renderAllPreviewPages();
-  } catch (err) {
-    previewBody.innerHTML = `<div class="preview-loading"><span style="color:var(--accent)">Failed to load PDF</span></div>`;
+// ── Search & Highlight ─────────────────────────────────────────────────────
+const searchBar = document.getElementById('searchBar');
+const searchInput = document.getElementById('searchInput');
+const searchCount = document.getElementById('searchCount');
+const closeSearch = document.getElementById('closeSearch');
+
+function clearSearch() {
+  searchInput.value = '';
+  searchCount.textContent = '';
+  cardGrid.querySelectorAll('.pdf-card').forEach(card => {
+    card.style.opacity = '1';
+    card.style.boxShadow = '';
+    const id = +card.dataset.id;
+    const entry = files.find(f => f.id === id);
+    if (entry) {
+        card.querySelector('.card-name').innerHTML = escHtml(entry.name);
+    }
+    const badge = card.querySelector('.content-match-badge');
+    if (badge) badge.remove();
+  });
+}
+
+function performSearch(query) {
+  query = query.toLowerCase().trim();
+  let matchCount = 0;
+  if (!query) { clearSearch(); return; }
+  
+  cardGrid.querySelectorAll('.pdf-card').forEach(card => {
+    const id = +card.dataset.id;
+    const entry = files.find(f => f.id === id);
+    if (!entry) return;
+    
+    const nameMatch = entry.name.toLowerCase().includes(query);
+    const contentMatch = entry.textContent && entry.textContent.includes(query);
+    const nameEl = card.querySelector('.card-name');
+    
+    if (nameMatch || contentMatch) {
+      matchCount++;
+      card.style.opacity = '1';
+      card.style.boxShadow = '0 0 0 2px #E8521A, 0 4px 12px rgba(232,82,26,0.2)';
+      card.classList.add('z-10'); // Bring ahead of opaque neighbors
+      
+      if (nameMatch) {
+        const regex = new RegExp(`(${escRx(query)})`, 'gi');
+        nameEl.innerHTML = escHtml(entry.name).replace(regex, '<mark class="bg-[#E8521A] text-white px-0.5 rounded">$1</mark>');
+      } else {
+        nameEl.innerHTML = escHtml(entry.name);
+      }
+      
+      let badge = card.querySelector('.content-match-badge');
+      if (contentMatch) {
+        if (!badge) {
+          badge = document.createElement('div');
+          badge.className = 'content-match-badge absolute bottom-2 left-2 bg-[#1A56E8] text-white text-[9px] px-1.5 py-0.5 rounded font-medium z-10 shadow-sm';
+          badge.textContent = 'Content Match';
+          card.querySelector('.card-preview').appendChild(badge);
+        }
+      } else {
+        if (badge) badge.remove();
+      }
+    } else {
+      card.style.opacity = '0.25';
+      card.style.boxShadow = 'none';
+      card.classList.remove('z-10');
+      nameEl.innerHTML = escHtml(entry.name);
+      const badge = card.querySelector('.content-match-badge');
+      if (badge) badge.remove();
+    }
+  });
+  
+  searchCount.textContent = `${matchCount} match${matchCount !== 1 ? 'es' : ''}`;
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+    if (!document.getElementById('mergeResult').classList.contains('hidden')) return; // skip if merge result open
+    e.preventDefault();
+    searchBar.classList.remove('hidden');
+    searchInput.focus();
+    performSearch(searchInput.value);
   }
-}
-
-async function renderAllPreviewPages() {
-  if (!previewPdfDoc) return;
-  previewPageInfo.textContent = `${previewTotal} page${previewTotal !== 1 ? 's' : ''}`;
-  prevPageBtn.style.display = 'none';
-  nextPageBtn.style.display = 'none';
-  previewBody.innerHTML = '';
-
-  for (let i = 1; i <= previewTotal; i++) {
-    const wrap = document.createElement('div');
-    wrap.className = 'preview-page-wrap';
-
-    const lbl = document.createElement('div');
-    lbl.className = 'preview-page-label';
-    lbl.textContent = `${i} / ${previewTotal}`;
-
-    const canvas = document.createElement('canvas');
-    wrap.appendChild(canvas);
-    wrap.appendChild(lbl);
-    previewBody.appendChild(wrap);
-
-    // render async, don't block
-    (async () => {
-      try {
-        const page = await previewPdfDoc.getPage(i);
-        const vp = page.getViewport({ scale: 1 });
-        // Fit to ~640px width at 2x for sharpness
-        const scale = (Math.min(640, window.innerWidth - 80) / vp.width) * 1.5;
-        const viewport = page.getViewport({ scale, rotation: previewRotation });
-        canvas.width  = viewport.width;
-        canvas.height = viewport.height;
-        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-      } catch {}
-    })();
+  if (e.key === 'Escape') {
+    if (!searchBar.classList.contains('hidden')) {
+      searchBar.classList.add('hidden');
+      clearSearch();
+    }
   }
-}
+});
 
-function closePreview() {
-  previewModal.classList.remove('show');
-  document.body.style.overflow = '';
-  previewPdfDoc = null;
-  previewBody.innerHTML = '';
-}
+searchInput.addEventListener('input', e => {
+  performSearch(e.target.value);
+});
 
-previewClose.addEventListener('click', closePreview);
-previewBackdrop.addEventListener('click', closePreview);
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
+closeSearch.addEventListener('click', () => {
+  searchBar.classList.add('hidden');
+  clearSearch();
+});
 
-// ── Helpers ──────────────────────────────────────────────────
-function formatSize(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-}
-
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ── Init ─────────────────────────────────────────────────────
+// ── Init ───────────────────────────────────────────────────────────────────
 appendAddCard();
 checkRestore();
 </script>

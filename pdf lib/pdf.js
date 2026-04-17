@@ -14,13 +14,13 @@
  */
 
 // eslint-disable-next-line max-len
-/** @typedef {import("./display/api").OnProgressParameters} OnProgressParameters */
+/** @typedef {import("./display/api.js").OnProgressParameters} OnProgressParameters */
 // eslint-disable-next-line max-len
-/** @typedef {import("./display/api").PDFDocumentLoadingTask} PDFDocumentLoadingTask */
-/** @typedef {import("./display/api").PDFDocumentProxy} PDFDocumentProxy */
-/** @typedef {import("./display/api").PDFPageProxy} PDFPageProxy */
-/** @typedef {import("./display/api").RenderTask} RenderTask */
-/** @typedef {import("./display/display_utils").PageViewport} PageViewport */
+/** @typedef {import("./display/api.js").PDFDocumentLoadingTask} PDFDocumentLoadingTask */
+/** @typedef {import("./display/api.js").PDFDocumentProxy} PDFDocumentProxy */
+/** @typedef {import("./display/api.js").PDFPageProxy} PDFPageProxy */
+/** @typedef {import("./display/api.js").RenderTask} RenderTask */
+/** @typedef {import("./display/display_utils.js").PageViewport} PageViewport */
 
 import {
   AbortException,
